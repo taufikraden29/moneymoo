@@ -64,16 +64,22 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       {/* Header */}
-      <header className="flex justify-between items-center mb-8">
+
+      <header className=" items-center mb-8">
+        <div className="flex justify-between">
+          <h1 className="text-2xl font-bold text-gray-800">👋 Halo</h1>
+          <div className="">
+            <button
+              onClick={handleLogout}
+              className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow"
+            >
+              Keluar
+            </button>
+          </div>
+        </div>
         <h1 className="text-2xl font-bold text-gray-800">
-          👋 Halo, <span className="text-blue-600">{user?.email}</span>
+          <span className="text-blue-600">{user?.email}</span>
         </h1>
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg shadow"
-        >
-          Keluar
-        </button>
       </header>
 
       {/* Tombol Tambah */}

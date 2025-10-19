@@ -62,14 +62,6 @@ export default function AddTransaction() {
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-lg mx-auto bg-white p-6 rounded-xl shadow-lg relative">
-        {/* Tombol kembali */}
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="absolute top-4 left-4 bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded-md text-sm font-medium transition"
-        >
-          ⬅️ Kembali
-        </button>
-
         <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
           ➕ Tambah Transaksi
         </h2>
@@ -163,7 +155,16 @@ export default function AddTransaction() {
           >
             Simpan Transaksi
           </button>
+          {/* Tombol kembali */}
         </form>
+        <div className="pt-2">
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 rounded-lg shadow-md transition"
+          >
+            Kembali
+          </button>
+        </div>
       </div>
     </div>
   );

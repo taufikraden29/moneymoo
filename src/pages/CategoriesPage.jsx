@@ -5,12 +5,15 @@ import {
   addCategory,
   deleteCategory,
 } from "../pages/CategoryService";
+import { useNavigate } from "react-router-dom";
 
 export default function CategoriesPage() {
   const [user, setUser] = useState(null);
   const [categories, setCategories] = useState([]);
   const [name, setName] = useState("");
   const [type, setType] = useState("expense");
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -107,6 +110,15 @@ export default function CategoriesPage() {
             ))
           )}
         </ul>
+      </div>
+
+      <div className="pt-6">
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 rounded-lg shadow-md transition"
+        >
+          Kembali
+        </button>
       </div>
     </div>
   );

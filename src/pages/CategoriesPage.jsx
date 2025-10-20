@@ -46,31 +46,41 @@ export default function CategoriesPage() {
     }
   };
 
-  const handleDelete = async (id) => {
-    toast((t) => (
-      <div className="flex flex-col items-start gap-3">
-        <span>Hapus kategori ini?</span>
-        <div className="flex gap-3">
-          <button
-            onClick={async () => {
-              await deleteCategory(id);
-              loadCategories(user.id);
-              toast.dismiss(t.id);
-              toast.success("Kategori berhasil dihapus!");
-            }}
-            className="bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700"
-          >
-            Ya, hapus
-          </button>
-          <button
-            onClick={() => toast.dismiss(t.id)}
-            className="bg-gray-300 text-gray-800 px-3 py-1 rounded-md text-sm hover:bg-gray-400"
-          >
-            Batal
-          </button>
+  const handleDelete = (id) => {
+    if (!user) return;
+
+    toast(
+      (t) => (
+        <div className="flex flex-col items-start gap-3">
+          <span>Hapus kategori ini?</span>
+          <div className="flex gap-3 mt-2">
+            <button
+              onClick={async () => {
+                try {
+                  await deleteCategory(id); // Hapus data
+                  await loadCategories(user.id); // Refresh list
+                  toast.dismiss(t.id); // Tutup toast
+                  toast.success("Kategori berhasil dihapus!");
+                } catch (err) {
+                  toast.dismiss(t.id);
+                  toast.error("Gagal menghapus kategori!");
+                }
+              }}
+              className="bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700"
+            >
+              Ya, hapus
+            </button>
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="bg-gray-300 text-gray-800 px-3 py-1 rounded-md text-sm hover:bg-gray-400"
+            >
+              Batal
+            </button>
+          </div>
         </div>
-      </div>
-    ));
+      ),
+      { duration: Infinity } // biar toast tidak hilang otomatis
+    );
   };
 
   return (
@@ -122,8 +132,9 @@ export default function CategoriesPage() {
                 <div>
                   <p className="font-medium text-gray-800">{cat.name}</p>
                   <p
-                    className={`text-sm ${cat.type === "income" ? "text-green-600" : "text-red-500"
-                      }`}
+                    className={`text-sm ${
+                      cat.type === "income" ? "text-green-600" : "text-red-500"
+                    }`}
                   >
                     {cat.type === "income" ? "Pemasukan" : "Pengeluaran"}
                   </p>

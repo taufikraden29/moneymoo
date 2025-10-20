@@ -11,8 +11,21 @@ import UpdatePassword from "./pages/UpdatePassword.jsx";
 
 import ProtectedRoute from "./components/ProtectedRoute"; // sesuaikan path
 
+import { Toaster } from "react-hot-toast"; // ✅ import Toaster
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <BrowserRouter>
+    {/* Toaster global untuk menampilkan toast di seluruh aplikasi */}
+    <Toaster
+      position="top-center"
+      reverseOrder={false}
+      toastOptions={{
+        style: {
+          fontSize: "14px",
+        },
+      }}
+    />
+
     <Routes>
       <Route path="/" element={<AuthPage />} />
 

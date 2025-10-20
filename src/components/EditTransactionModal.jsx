@@ -1,5 +1,5 @@
-// src/components/EditTransactionModal.jsx
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
 export default function EditTransactionModal({
     open,
@@ -37,15 +37,28 @@ export default function EditTransactionModal({
     const handleSave = async (e) => {
         e.preventDefault();
         if (!form.date || !form.category || !form.amount) {
-            return alert("Isi semua kolom wajib!");
+            toast.error("Isi semua kolom wajib!");
+            return;
         }
+
         setLoading(true);
+        const savePromise = onSaved({ ...form, amount: Number(form.amount) });
+
+        toast.promise(
+            savePromise,
+            {
+                loading: "Menyimpan perubahan...",
+                success: "Transaksi berhasil diperbarui!",
+                error: "Gagal menyimpan perubahan!",
+            },
+            { position: "top-center" }
+        );
+
         try {
-            await onSaved({ ...form, amount: Number(form.amount) });
+            await savePromise;
             onClose();
         } catch (err) {
             console.error(err);
-            alert("Gagal menyimpan perubahan");
         } finally {
             setLoading(false);
         }
@@ -53,7 +66,7 @@ export default function EditTransactionModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <div className="bg-white rounded-xl shadow-lg max-w-lg w-full p-6 relative">
+            <div className="bg-white rounded-xl shadow-lg max-w-lg w-full p-6 relative animate-fadeIn">
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-gray-600 hover:text-gray-800"
@@ -71,7 +84,7 @@ export default function EditTransactionModal({
                             name="date"
                             value={form.date}
                             onChange={handleChange}
-                            className="w-full border px-3 py-2 rounded mt-1"
+                            className="w-full border px-3 py-2 rounded mt-1 focus:ring-2 focus:ring-blue-400 outline-none"
                         />
                     </div>
 
@@ -81,7 +94,7 @@ export default function EditTransactionModal({
                             name="type"
                             value={form.type}
                             onChange={handleChange}
-                            className="w-full border px-3 py-2 rounded mt-1"
+                            className="w-full border px-3 py-2 rounded mt-1 focus:ring-2 focus:ring-blue-400 outline-none"
                         >
                             <option value="expense">Pengeluaran</option>
                             <option value="income">Pemasukan</option>
@@ -94,7 +107,7 @@ export default function EditTransactionModal({
                             name="category"
                             value={form.category}
                             onChange={handleChange}
-                            className="w-full border px-3 py-2 rounded mt-1"
+                            className="w-full border px-3 py-2 rounded mt-1 focus:ring-2 focus:ring-blue-400 outline-none"
                         >
                             <option value="">Pilih kategori</option>
                             {categories
@@ -113,7 +126,7 @@ export default function EditTransactionModal({
                             name="description"
                             value={form.description}
                             onChange={handleChange}
-                            className="w-full border px-3 py-2 rounded mt-1"
+                            className="w-full border px-3 py-2 rounded mt-1 focus:ring-2 focus:ring-blue-400 outline-none"
                         />
                     </div>
 
@@ -124,7 +137,7 @@ export default function EditTransactionModal({
                             type="number"
                             value={form.amount}
                             onChange={handleChange}
-                            className="w-full border px-3 py-2 rounded mt-1"
+                            className="w-full border px-3 py-2 rounded mt-1 focus:ring-2 focus:ring-blue-400 outline-none"
                         />
                     </div>
 
@@ -132,14 +145,17 @@ export default function EditTransactionModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 rounded border"
+                            className="px-4 py-2 rounded border hover:bg-gray-100 transition"
                         >
                             Batal
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="px-4 py-2 rounded bg-blue-600 text-white"
+                            className={`px-4 py-2 rounded text-white transition ${loading
+                                    ? "bg-blue-400 cursor-not-allowed"
+                                    : "bg-blue-600 hover:bg-blue-700"
+                                }`}
                         >
                             {loading ? "Menyimpan..." : "Simpan"}
                         </button>

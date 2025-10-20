@@ -6,9 +6,13 @@ import AuthPage from "./pages/Auth.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import AddTransaction from "./pages/AddTransaction";
 import Categories from "./pages/CategoriesPage.jsx";
+import { Toaster } from "react-hot-toast";
+
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <BrowserRouter>
+    <Toaster position="top-center" reverseOrder={false} />
+
     <Routes>
       <Route path="/" element={<AuthPage />} />
       <Route path="/dashboard" element={<Dashboard />} />

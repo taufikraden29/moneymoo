@@ -1,4 +1,3 @@
-// src/pages/Dashboard.jsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
@@ -9,6 +8,7 @@ import {
 } from "../pages/TransactionService";
 import EditTransactionModal from "../components/EditTransactionModal";
 import ReportChart from "../components/ReportChart";
+import toast from "react-hot-toast";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -90,7 +90,7 @@ export default function Dashboard() {
       setTransactions(data);
     } catch (err) {
       console.error("Gagal ambil transaksi:", err);
-      alert("Gagal memuat transaksi");
+      toast.error("Gagal memuat transaksi!");
     } finally {
       setLoading(false);
     }
@@ -104,9 +104,36 @@ export default function Dashboard() {
   }, [from, to, filterType, filterCategory, q]);
 
   const handleDelete = async (id) => {
-    if (!confirm("Hapus transaksi ini?")) return;
-    await deleteTransaction(id);
-    await loadTransactions();
+    toast((t) => (
+      <div className="flex flex-col items-start gap-3">
+        <span>Hapus transaksi ini?</span>
+        <div className="flex gap-3">
+          <button
+            onClick={async () => {
+              toast.dismiss(t.id);
+              toast.promise(
+                deleteTransaction(id).then(() => loadTransactions()),
+                {
+                  loading: "Menghapus transaksi...",
+                  success: "Transaksi berhasil dihapus!",
+                  error: "Gagal menghapus transaksi!",
+                },
+                { position: "top-center" }
+              );
+            }}
+            className="bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700"
+          >
+            Ya, hapus
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="bg-gray-300 text-gray-800 px-3 py-1 rounded-md text-sm hover:bg-gray-400"
+          >
+            Batal
+          </button>
+        </div>
+      </div>
+    ));
   };
 
   const openEdit = (trx) => {
@@ -115,7 +142,17 @@ export default function Dashboard() {
   };
 
   const handleSaveEdit = async (updatedPayload) => {
-    await updateTransaction(editing.id, updatedPayload);
+    const promise = updateTransaction(editing.id, updatedPayload);
+    toast.promise(
+      promise,
+      {
+        loading: "Menyimpan perubahan...",
+        success: "Transaksi berhasil diperbarui!",
+        error: "Gagal memperbarui transaksi!",
+      },
+      { position: "top-center" }
+    );
+    await promise;
     await loadTransactions();
   };
 
@@ -153,6 +190,7 @@ export default function Dashboard() {
           <button
             onClick={async () => {
               await supabase.auth.signOut();
+              toast.success("Berhasil keluar!");
               navigate("/");
             }}
             className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition"

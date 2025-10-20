@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 export default function AddTransaction() {
   const [user, setUser] = useState(null);
@@ -48,12 +49,12 @@ export default function AddTransaction() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.category || !form.amount || !form.date)
-      return alert("Isi semua kolom wajib!");
+    if (!form.category || !form.amount || !form.date) {
+      toast.error("⚠️ Isi semua kolom wajib!");
+      return;
+    }
 
-    // Ubah nominal rupiah menjadi angka murni sebelum simpan
     const cleanAmount = Number(form.amount.replace(/\D/g, ""));
-
     const { error } = await supabase.from("transactions").insert([
       {
         user_id: user.id,
@@ -65,9 +66,9 @@ export default function AddTransaction() {
 
     if (error) {
       console.error(error);
-      alert("Gagal menambahkan transaksi!");
+      toast.error("❌ Gagal menambahkan transaksi!");
     } else {
-      alert("Transaksi berhasil ditambahkan ✅");
+      toast.success("✅ Transaksi berhasil ditambahkan!");
       setForm({
         date: "",
         type: "expense",

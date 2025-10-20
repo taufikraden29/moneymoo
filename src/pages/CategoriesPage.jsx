@@ -6,6 +6,7 @@ import {
   deleteCategory,
 } from "../pages/CategoryService";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 export default function CategoriesPage() {
   const [user, setUser] = useState(null);
@@ -30,17 +31,46 @@ export default function CategoriesPage() {
   };
 
   const handleAdd = async () => {
-    if (!name) return alert("Masukkan nama kategori!");
-    await addCategory({ user_id: user.id, name, type });
-    setName("");
-    loadCategories(user.id);
+    if (!name.trim()) {
+      toast.error("Masukkan nama kategori!");
+      return;
+    }
+
+    try {
+      await addCategory({ user_id: user.id, name, type });
+      toast.success("Kategori berhasil ditambahkan!");
+      setName("");
+      loadCategories(user.id);
+    } catch (err) {
+      toast.error("Gagal menambah kategori!");
+    }
   };
 
   const handleDelete = async (id) => {
-    if (confirm("Hapus kategori ini?")) {
-      await deleteCategory(id);
-      loadCategories(user.id);
-    }
+    toast((t) => (
+      <div className="flex flex-col items-start gap-3">
+        <span>Hapus kategori ini?</span>
+        <div className="flex gap-3">
+          <button
+            onClick={async () => {
+              await deleteCategory(id);
+              loadCategories(user.id);
+              toast.dismiss(t.id);
+              toast.success("Kategori berhasil dihapus!");
+            }}
+            className="bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700"
+          >
+            Ya, hapus
+          </button>
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="bg-gray-300 text-gray-800 px-3 py-1 rounded-md text-sm hover:bg-gray-400"
+          >
+            Batal
+          </button>
+        </div>
+      </div>
+    ));
   };
 
   return (
@@ -92,9 +122,8 @@ export default function CategoriesPage() {
                 <div>
                   <p className="font-medium text-gray-800">{cat.name}</p>
                   <p
-                    className={`text-sm ${
-                      cat.type === "income" ? "text-green-600" : "text-red-500"
-                    }`}
+                    className={`text-sm ${cat.type === "income" ? "text-green-600" : "text-red-500"
+                      }`}
                   >
                     {cat.type === "income" ? "Pemasukan" : "Pengeluaran"}
                   </p>

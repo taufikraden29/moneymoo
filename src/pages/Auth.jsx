@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import toast, { Toaster } from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import { FaEye, FaEyeSlash } from "react-icons/fa"; // import ikon mata
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -9,24 +10,26 @@ export default function Auth() {
   const [secret, setSecret] = useState("");
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState("login");
-  const [resetMode, setResetMode] = useState(false); // 🔹 new state
-
+  const [resetMode, setResetMode] = useState(false);
   const SECRET_KEY = import.meta.env.VITE_SECRET_KEY;
 
-  // ✅ Handle Login & Register
+  // State toggle password visibility
+  const [showPassword, setShowPassword] = useState(false);
+
+  const togglePasswordVisibility = () => {
+    setShowPassword((prev) => !prev);
+  };
+
   const handleAuth = async (e) => {
     e.preventDefault();
-
     if (!email || !password) {
       toast.error("Email dan password wajib diisi!");
       return;
     }
-
     if (mode === "register" && password.length < 6) {
       toast.error("Password minimal 6 karakter!");
       return;
     }
-
     if (mode === "register") {
       if (!secret) {
         toast.error("Kunci rahasia wajib diisi!");
@@ -37,12 +40,10 @@ export default function Auth() {
         return;
       }
     }
-
     setLoading(true);
     try {
       if (mode === "register") {
         const { error } = await supabase.auth.signUp({ email, password });
-
         if (error) {
           if (error.message.includes("already registered")) {
             toast.error("Email sudah terdaftar, silakan masuk.");
@@ -53,11 +54,7 @@ export default function Auth() {
           toast.success("Pendaftaran berhasil! Silakan verifikasi email Anda.");
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           if (
             error.message.includes("Invalid login credentials") ||
@@ -82,21 +79,17 @@ export default function Auth() {
     }
   };
 
-  // ✅ Handle Reset Password
   const handleResetPassword = async (e) => {
     e.preventDefault();
-
     if (!email) {
       toast.error("Masukkan email terlebih dahulu!");
       return;
     }
-
     setLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/update-password`,
       });
-
       if (error) {
         toast.error(error.message);
       } else {
@@ -114,7 +107,6 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
       <Toaster position="top-center" />
-
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -148,13 +140,27 @@ export default function Auth() {
                 onChange={(e) => setEmail(e.target.value)}
               />
 
-              <input
-                type="password"
-                placeholder="Kata Sandi"
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              {/* Input Password dengan toggle mata */}
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Kata Sandi"
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                {/* Ikon toggle */}
+                <div
+                  className="absolute inset-y-0 right-3 flex items-center cursor-pointer"
+                  onClick={togglePasswordVisibility}
+                >
+                  {showPassword ? (
+                    <FaEyeSlash className="text-gray-500" />
+                  ) : (
+                    <FaEye className="text-gray-500" />
+                  )}
+                </div>
+              </div>
 
               <AnimatePresence>
                 {mode === "register" && (
@@ -189,7 +195,6 @@ export default function Auth() {
                     : "Buat Akun"}
               </button>
             </form>
-
             {/* Footer */}
             <div className="text-sm text-center mt-4 text-gray-600 space-y-2">
               {mode === "login" && (
@@ -247,7 +252,6 @@ export default function Auth() {
                 {loading ? "Mengirim..." : "Kirim Link Reset"}
               </button>
             </form>
-
             <p
               className="text-sm text-center mt-4 text-blue-500 cursor-pointer hover:underline"
               onClick={() => setResetMode(false)}

@@ -9,6 +9,8 @@ import {
 import EditTransactionModal from "../components/EditTransactionModal";
 import ReportChart from "../components/ReportChart";
 import toast from "react-hot-toast";
+import FinancialStatusCard from "../components/FinancialStatusCard";
+
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -269,19 +271,21 @@ export default function Dashboard() {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-xl shadow border-l-4 border-green-500">
           <div className="text-sm text-gray-500">Pemasukan</div>
           <div className="text-2xl font-bold text-green-600 mt-1">
             Rp {totalIncome.toLocaleString("id-ID")}
           </div>
         </div>
+
         <div className="bg-white p-6 rounded-xl shadow border-l-4 border-red-500">
           <div className="text-sm text-gray-500">Pengeluaran</div>
           <div className="text-2xl font-bold text-red-500 mt-1">
             Rp {totalExpense.toLocaleString("id-ID")}
           </div>
         </div>
+
         <div className="bg-white p-6 rounded-xl shadow border-l-4 border-blue-600">
           <div className="text-sm text-gray-500">Saldo</div>
           <div
@@ -291,7 +295,14 @@ export default function Dashboard() {
             Rp {balance.toLocaleString("id-ID")}
           </div>
         </div>
+
+        {/* Status Keuangan */}
+        <FinancialStatusCard
+          totalIncome={totalIncome}
+          totalExpense={totalExpense}
+        />
       </div>
+
 
       {/* Transactions */}
       <section className="bg-white rounded-xl shadow p-6 border border-gray-100">

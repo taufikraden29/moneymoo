@@ -2,24 +2,56 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "./index.css";
+
 import AuthPage from "./pages/Auth.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import AddTransaction from "./pages/AddTransaction";
 import Categories from "./pages/CategoriesPage.jsx";
-import { Toaster } from "react-hot-toast";
 import UpdatePassword from "./pages/UpdatePassword.jsx";
 
+import ProtectedRoute from "./components/ProtectedRoute"; // sesuaikan path
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <BrowserRouter>
-    <Toaster position="top-center" reverseOrder={false} />
-
     <Routes>
       <Route path="/" element={<AuthPage />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/add-transaction" element={<AddTransaction />} />
-      <Route path="/categories" element={<Categories />} />
-      <Route path="/update-password" element={<UpdatePassword />} />
+
+      {/* Route yang dilindungi */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/add-transaction"
+        element={
+          <ProtectedRoute>
+            <AddTransaction />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/categories"
+        element={
+          <ProtectedRoute>
+            <Categories />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/update-password"
+        element={
+          <ProtectedRoute>
+            <UpdatePassword />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   </BrowserRouter>
 );

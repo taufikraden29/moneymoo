@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   // Filters
   const [from, setFrom] = useState("");
@@ -35,15 +36,16 @@ export default function Dashboard() {
   const [chartType, setChartType] = useState("expense");
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
       if (!data?.user) {
-        navigate("/");
-        return;
+        navigate("/", { replace: true }); // langsung redirect tanpa flicker
+      } else {
+        setUser(data.user);
       }
-      setUser(data.user);
+      setAuthChecked(true); // tandai proses sudah selesai
     };
-    fetchUser();
+    checkUser();
   }, [navigate]);
 
   useEffect(() => {
@@ -166,6 +168,16 @@ export default function Dashboard() {
     .reduce((acc, t) => acc + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
 
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <h1 className="text-xl font-bold">Memeriksa sesi...</h1>
+      </div>
+    );
+  }
+
+  if (!user) return null; // tidak render apapun jika user tidak ada
+
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6">
       {/* Header */}
@@ -189,10 +201,11 @@ export default function Dashboard() {
           >
             ➕ Tambah
           </button>
-          <button
+          \<button
             onClick={async () => {
               await supabase.auth.signOut();
               toast.success("Berhasil keluar!");
+              // Navigasi ke dashboard agar efek sekedip muncul
               navigate("/");
             }}
             className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition"

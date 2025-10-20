@@ -4,7 +4,7 @@ import {
   getCategories,
   addCategory,
   deleteCategory,
-} from "../pages/CategoryService";
+} from "../services/CategoryService";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 

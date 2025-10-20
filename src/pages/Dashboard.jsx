@@ -5,17 +5,23 @@ import {
   getTransactions,
   updateTransaction,
   deleteTransaction,
-} from "../pages/TransactionService";
+} from "../services/TransactionService";
 import EditTransactionModal from "../components/EditTransactionModal";
 import ReportChart from "../components/ReportChart";
 import toast from "react-hot-toast";
 import FinancialStatusCard from "../components/FinancialStatusCard";
+import CategoryModal from "../components/CategoryModal";
+import AddTransactionModal from "../components/AddTransactionModal";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [transactions, setTransactions] = useState([]);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+
   const [categories, setCategories] = useState([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -206,17 +212,21 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigate("/categories")}
+            onClick={() => setShowCategoryModal(true)}
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition"
           >
             📁 Kategori
           </button>
           <button
-            onClick={() => navigate("/add-transaction")}
+            onClick={() => setAddModalOpen(true)}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow transition"
           >
             ➕ Tambah
           </button>
+          <AddTransactionModal
+            open={addModalOpen}
+            onClose={() => setAddModalOpen(false)}
+          />
 
           <button
             onClick={async () => {
@@ -408,6 +418,12 @@ export default function Dashboard() {
           onSaved={handleSaveEdit}
         />
       )}
+
+      {/* 🧩 Modal Kategori */}
+      <CategoryModal
+        open={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+      />
     </div>
   );
 }

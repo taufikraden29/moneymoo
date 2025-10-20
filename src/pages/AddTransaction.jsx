@@ -33,7 +33,17 @@ export default function AddTransaction() {
   };
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    if (name === "amount") {
+      // Hilangkan karakter selain angka
+      const numericValue = value.replace(/\D/g, "");
+      // Format ke rupiah
+      const formatted = new Intl.NumberFormat("id-ID").format(numericValue);
+      setForm({ ...form, [name]: formatted });
+    } else {
+      setForm({ ...form, [name]: value });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -41,11 +51,14 @@ export default function AddTransaction() {
     if (!form.category || !form.amount || !form.date)
       return alert("Isi semua kolom wajib!");
 
+    // Ubah nominal rupiah menjadi angka murni sebelum simpan
+    const cleanAmount = Number(form.amount.replace(/\D/g, ""));
+
     const { error } = await supabase.from("transactions").insert([
       {
         user_id: user.id,
         ...form,
-        amount: Number(form.amount),
+        amount: cleanAmount,
         created_at: new Date(),
       },
     ]);
@@ -55,7 +68,13 @@ export default function AddTransaction() {
       alert("Gagal menambahkan transaksi!");
     } else {
       alert("Transaksi berhasil ditambahkan ✅");
-      //   navigate("/dashboard"); // 👉 setelah sukses kembali ke dashboard
+      setForm({
+        date: "",
+        type: "expense",
+        category: "",
+        description: "",
+        amount: "",
+      });
     }
   };
 
@@ -69,9 +88,7 @@ export default function AddTransaction() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Tanggal */}
           <div>
-            <label className="block text-gray-700 mb-1 font-medium">
-              Tanggal
-            </label>
+            <label className="block text-gray-700 mb-1 font-medium">Tanggal</label>
             <input
               type="date"
               name="date"
@@ -83,9 +100,7 @@ export default function AddTransaction() {
 
           {/* Jenis transaksi */}
           <div>
-            <label className="block text-gray-700 mb-1 font-medium">
-              Jenis
-            </label>
+            <label className="block text-gray-700 mb-1 font-medium">Jenis</label>
             <select
               name="type"
               value={form.type}
@@ -99,9 +114,7 @@ export default function AddTransaction() {
 
           {/* Kategori */}
           <div>
-            <label className="block text-gray-700 mb-1 font-medium">
-              Kategori
-            </label>
+            <label className="block text-gray-700 mb-1 font-medium">Kategori</label>
             <select
               name="category"
               value={form.category}
@@ -121,9 +134,7 @@ export default function AddTransaction() {
 
           {/* Deskripsi */}
           <div>
-            <label className="block text-gray-700 mb-1 font-medium">
-              Deskripsi
-            </label>
+            <label className="block text-gray-700 mb-1 font-medium">Deskripsi</label>
             <input
               type="text"
               name="description"
@@ -136,27 +147,27 @@ export default function AddTransaction() {
 
           {/* Jumlah */}
           <div>
-            <label className="block text-gray-700 mb-1 font-medium">
-              Jumlah (Rp)
-            </label>
+            <label className="block text-gray-700 mb-1 font-medium">Jumlah (Rp)</label>
             <input
-              type="number"
+              type="text"
               name="amount"
               placeholder="0"
               value={form.amount}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-right focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
 
+          {/* Tombol simpan */}
           <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg shadow-md transition"
           >
             Simpan Transaksi
           </button>
-          {/* Tombol kembali */}
         </form>
+
+        {/* Tombol kembali */}
         <div className="pt-2">
           <button
             onClick={() => navigate("/dashboard")}

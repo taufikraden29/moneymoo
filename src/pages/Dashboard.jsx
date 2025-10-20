@@ -8,6 +8,7 @@ import {
   deleteTransaction,
 } from "../pages/TransactionService";
 import EditTransactionModal from "../components/EditTransactionModal";
+import ReportChart from "../components/ReportChart";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -19,13 +20,17 @@ export default function Dashboard() {
   // Filters
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [filterType, setFilterType] = useState(""); // "", "income", "expense"
+  const [filterType, setFilterType] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [q, setQ] = useState("");
 
-  // Edit modal state
+  // Edit modal
   const [editing, setEditing] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Chart
+  const [chartData, setChartData] = useState([]);
+  const [chartType, setChartType] = useState("expense");
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -44,8 +49,22 @@ export default function Dashboard() {
       loadCategories();
       loadTransactions();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  useEffect(() => {
+    if (transactions.length > 0) {
+      const filtered = transactions.filter((trx) => trx.type === chartType);
+      const totals = filtered.reduce((acc, trx) => {
+        const cat = trx.category || "Tanpa Kategori";
+        acc[cat] = (acc[cat] || 0) + Number(trx.amount);
+        return acc;
+      }, {});
+      const formatted = Object.entries(totals).map(([name, value]) => ({ name, value }));
+      setChartData(formatted);
+    } else {
+      setChartData([]);
+    }
+  }, [transactions, chartType]);
 
   const loadCategories = async () => {
     const { data, error } = await supabase
@@ -77,24 +96,17 @@ export default function Dashboard() {
     }
   };
 
-  // apply filters immediately on change
   useEffect(() => {
     const timer = setTimeout(() => {
       if (user) loadTransactions();
     }, 300);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, filterType, filterCategory, q]);
 
   const handleDelete = async (id) => {
     if (!confirm("Hapus transaksi ini?")) return;
-    try {
-      await deleteTransaction(id);
-      await loadTransactions();
-    } catch (err) {
-      console.error(err);
-      alert("Gagal menghapus transaksi");
-    }
+    await deleteTransaction(id);
+    await loadTransactions();
   };
 
   const openEdit = (trx) => {
@@ -103,12 +115,8 @@ export default function Dashboard() {
   };
 
   const handleSaveEdit = async (updatedPayload) => {
-    try {
-      await updateTransaction(editing.id, updatedPayload);
-      await loadTransactions();
-    } catch (err) {
-      throw err;
-    }
+    await updateTransaction(editing.id, updatedPayload);
+    await loadTransactions();
   };
 
   const totalIncome = transactions
@@ -120,120 +128,150 @@ export default function Dashboard() {
   const balance = totalIncome - totalExpense;
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <header className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">
-          👋 Halo, <span className="text-blue-600">{user?.email}</span>
-        </h1>
+    <div className="min-h-screen bg-gray-50 px-4 py-6">
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 tracking-tight">
+            👋 Halo, <span className="text-blue-600">{user?.email}</span>
+          </h1>
+          <p className="text-gray-500 text-sm">Selamat datang di dashboard keuanganmu</p>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate("/categories")}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded"
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition"
           >
-            Kategori
+            📁 Kategori
           </button>
           <button
             onClick={() => navigate("/add-transaction")}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow transition"
           >
-            + Tambah
+            ➕ Tambah
           </button>
           <button
-            onClick={async () => { await supabase.auth.signOut(); navigate("/"); }}
-            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/");
+            }}
+            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition"
           >
-            Keluar
+            🚪 Keluar
           </button>
         </div>
       </header>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
+      <div className="bg-white rounded-xl shadow p-5 mb-6 border border-gray-100">
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
           <input
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="border px-3 py-2 rounded col-span-1"
-            placeholder="From"
+            className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400"
           />
           <input
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="border px-3 py-2 rounded col-span-1"
-            placeholder="To"
+            className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400"
           />
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="border px-3 py-2 rounded col-span-1"
+            className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400"
           >
             <option value="">Semua Tipe</option>
             <option value="income">Pemasukan</option>
             <option value="expense">Pengeluaran</option>
           </select>
-
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="border px-3 py-2 rounded col-span-2"
+            className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400"
           >
             <option value="">Semua Kategori</option>
             {categories.map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.name}>{c.name}</option>
             ))}
           </select>
-
           <input
             type="text"
+            placeholder="Cari deskripsi..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="border px-3 py-2 rounded col-span-1"
-            placeholder="Cari deskripsi atau kategori..."
+            className="border border-gray-300 px-3 py-2 rounded-lg text-sm col-span-2 focus:ring-2 focus:ring-blue-400"
           />
         </div>
       </div>
 
+      {/* Chart */}
+      <div className="bg-white rounded-xl shadow p-5 mb-8 border border-gray-100">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-semibold text-gray-700">Grafik Transaksi</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setChartType("expense")}
+              className={`px-3 py-1 rounded-lg text-sm ${chartType === "expense" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
+                }`}
+            >
+              Pengeluaran
+            </button>
+            <button
+              onClick={() => setChartType("income")}
+              className={`px-3 py-1 rounded-lg text-sm ${chartType === "income" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-600"
+                }`}
+            >
+              Pemasukan
+            </button>
+          </div>
+        </div>
+        <ReportChart data={chartData} />
+      </div>
+
       {/* Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-5 rounded-xl shadow">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-xl shadow border-l-4 border-green-500">
           <div className="text-sm text-gray-500">Pemasukan</div>
           <div className="text-2xl font-bold text-green-600 mt-1">
             Rp {totalIncome.toLocaleString("id-ID")}
           </div>
         </div>
-        <div className="bg-white p-5 rounded-xl shadow">
+        <div className="bg-white p-6 rounded-xl shadow border-l-4 border-red-500">
           <div className="text-sm text-gray-500">Pengeluaran</div>
           <div className="text-2xl font-bold text-red-500 mt-1">
             Rp {totalExpense.toLocaleString("id-ID")}
           </div>
         </div>
-        <div className="bg-white p-5 rounded-xl shadow">
+        <div className="bg-white p-6 rounded-xl shadow border-l-4 border-blue-600">
           <div className="text-sm text-gray-500">Saldo</div>
-          <div className={`text-2xl font-bold mt-1 ${balance >= 0 ? "text-blue-600" : "text-red-600"}`}>
+          <div
+            className={`text-2xl font-bold mt-1 ${balance >= 0 ? "text-blue-600" : "text-red-600"
+              }`}
+          >
             Rp {balance.toLocaleString("id-ID")}
           </div>
         </div>
       </div>
 
       {/* Transactions */}
-      <section className="bg-white p-6 rounded-xl shadow">
-        <h2 className="text-lg font-semibold mb-4">Transaksi</h2>
-
+      <section className="bg-white rounded-xl shadow p-6 border border-gray-100">
+        <h2 className="text-lg font-semibold text-gray-700 mb-4">📋 Daftar Transaksi</h2>
         {loading ? (
-          <p className="text-gray-500">Memuat...</p>
+          <p className="text-gray-500 text-sm">Memuat data...</p>
         ) : transactions.length === 0 ? (
-          <p className="text-gray-500">Belum ada transaksi</p>
+          <p className="text-gray-500 text-sm">Belum ada transaksi</p>
         ) : (
           <div className="divide-y divide-gray-200">
             {transactions.map((trx) => (
-              <div key={trx.id} className="flex items-center justify-between py-3">
+              <div
+                key={trx.id}
+                className="flex justify-between items-center py-3 hover:bg-gray-50 transition rounded-lg px-2"
+              >
                 <div>
                   <div className="font-medium text-gray-800">{trx.category}</div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-xs text-gray-500">
                     {new Date(trx.date).toLocaleDateString("id-ID", {
                       day: "2-digit",
                       month: "short",
@@ -241,24 +279,23 @@ export default function Dashboard() {
                     })} • {trx.description || "-"}
                   </div>
                 </div>
-
                 <div className="flex items-center gap-3">
-                  <div className={`font-semibold ${trx.type === "income" ? "text-green-600" : "text-red-500"}`}>
-                    {trx.type === "income" ? "+" : "-"} Rp {Number(trx.amount).toLocaleString("id-ID")}
+                  <div
+                    className={`font-semibold text-sm ${trx.type === "income" ? "text-green-600" : "text-red-500"
+                      }`}
+                  >
+                    {trx.type === "income" ? "+" : "-"} Rp{" "}
+                    {Number(trx.amount).toLocaleString("id-ID")}
                   </div>
-
                   <button
                     onClick={() => openEdit(trx)}
-                    className="text-sm px-2 py-1 bg-yellow-100 hover:bg-yellow-200 rounded"
-                    title="Edit"
+                    className="text-xs px-2 py-1 bg-yellow-100 hover:bg-yellow-200 rounded transition"
                   >
                     ✏️
                   </button>
-
                   <button
                     onClick={() => handleDelete(trx.id)}
-                    className="text-sm px-2 py-1 bg-red-100 hover:bg-red-200 rounded"
-                    title="Hapus"
+                    className="text-xs px-2 py-1 bg-red-100 hover:bg-red-200 rounded transition"
                   >
                     🗑️
                   </button>
@@ -269,7 +306,6 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* Edit modal */}
       {modalOpen && (
         <EditTransactionModal
           open={modalOpen}

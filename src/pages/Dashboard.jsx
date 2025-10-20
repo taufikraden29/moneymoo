@@ -12,6 +12,7 @@ import toast from "react-hot-toast";
 import FinancialStatusCard from "../components/FinancialStatusCard";
 import CategoryModal from "../components/CategoryModal";
 import AddTransactionModal from "../components/AddTransactionModal";
+import AffirmationCard from "@/components/AffirmationCard";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -201,6 +202,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6">
       {/* Header */}
+
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-800 tracking-tight">
@@ -209,6 +211,14 @@ export default function Dashboard() {
           <p className="text-gray-500 text-sm">
             Selamat datang di dashboard keuanganmu
           </p>
+        </div>
+        <div className="md:hidden w-full bg-gradient-to-r from-green-100 to-teal-200 text-center p-3 rounded-b-xl shadow-sm">
+          <h1 className="text-lg font-semibold text-gray-700">
+            🌱 Afirmasi Positif Keuangan
+          </h1>
+          <div className="mt-1">
+            <AffirmationCard />
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button

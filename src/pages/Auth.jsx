@@ -26,9 +26,9 @@ export default function Auth() {
 
   // Hero Slider
   const images = [
-    "/src/assets/Slide-1.webp",
-    "/src/assets/Slide-1.webp",
-    "/src/assets/Slide-1.webp",
+    "/public/Slide-1.webp",
+    "/public/Slide-1.webp",
+    "/public/Slide-1.webp",
   ];
   const [currentSlide, setCurrentSlide] = useState(0);
 

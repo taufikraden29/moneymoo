@@ -70,9 +70,9 @@ export default function AddTransaction() {
 
     if (error) {
       console.error(error);
-      toast.error("❌ Gagal menambahkan transaksi!");
+      toast.error("Gagal menambahkan transaksi!");
     } else {
-      toast.success("✅ Transaksi berhasil ditambahkan!");
+      toast.success("Transaksi berhasil ditambahkan!");
       setForm({
         date: today, // reset kembali ke tanggal hari ini
         type: "expense",

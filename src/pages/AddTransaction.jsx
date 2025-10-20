@@ -6,8 +6,12 @@ import toast from "react-hot-toast";
 export default function AddTransaction() {
   const [user, setUser] = useState(null);
   const [categories, setCategories] = useState([]);
+
+  // Ambil tanggal hari ini dalam format YYYY-MM-DD
+  const today = new Date().toISOString().split("T")[0];
+
   const [form, setForm] = useState({
-    date: "",
+    date: today, // 🔹 default tanggal hari ini
     type: "expense",
     category: "",
     description: "",
@@ -70,7 +74,7 @@ export default function AddTransaction() {
     } else {
       toast.success("✅ Transaksi berhasil ditambahkan!");
       setForm({
-        date: "",
+        date: today, // reset kembali ke tanggal hari ini
         type: "expense",
         category: "",
         description: "",
@@ -95,6 +99,7 @@ export default function AddTransaction() {
               name="date"
               value={form.date}
               onChange={handleChange}
+              max={today} // 🔹 bisa ubah tanggal, tapi tidak bisa lebih dari hari ini
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>

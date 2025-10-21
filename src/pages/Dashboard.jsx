@@ -273,6 +273,14 @@ export default function Dashboard() {
 
   if (!user) return null; // tidak render apapun jika user tidak ada
 
+  const today = new Date().toISOString().split("T")[0];
+  const todayTransactions = transactions.filter((t) => t.date === today);
+  const todayIncome = todayTransactions
+    .filter((t) => t.type === "income")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const todayExpense = todayTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((sum, t) => sum + t.amount, 0);
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6">
       {/* Header */}
@@ -382,7 +390,6 @@ export default function Dashboard() {
       </div>
 
       {/* Account */}
-      {/* Account */}
       <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
         {accounts.map((acc) => {
           const accTransactions = transactions.filter(
@@ -439,58 +446,16 @@ export default function Dashboard() {
       </div>
 
       {/* Summary Section */}
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-        {/* Total Pemasukan */}
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-md transition border-l-4 border-green-500">
-          <div className="text-sm text-gray-500 flex items-center gap-2">
-            <span className="text-green-500 text-lg">⬆️</span> Pemasukan
-          </div>
-          <div className="text-4xl md:text-5xl font-bold text-green-600 mt-2 truncate">
-            Rp {totalIncome.toLocaleString("id-ID")}
-          </div>
-        </div>
-
-        {/* Total Pengeluaran */}
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-md transition border-l-4 border-red-500">
-          <div className="text-sm text-gray-500 flex items-center gap-2">
-            <span className="text-red-500 text-lg">⬇️</span> Pengeluaran
-          </div>
-          <div className="text-4xl md:text-5xl font-bold text-red-500 mt-2 truncate">
-            Rp {totalExpense.toLocaleString("id-ID")}
-          </div>
-        </div>
-
-        {/* Saldo */}
-        <div className="bg-white p-6 rounded-xl shadow hover:shadow-md transition border-l-4 border-blue-600">
-          <div className="text-sm text-gray-500 flex items-center gap-2">
-            <span className="text-blue-600 text-lg">💰</span> Saldo
-          </div>
-          <div
-            className={`text-4xl md:text-5xl font-bold mt-2 truncate ${
-              balance >= 0 ? "text-blue-600" : "text-red-600"
-            }`}
-          >
-            Rp {balance.toLocaleString("id-ID")}
-          </div>
-          {selectedAccount && (
-            <div className="text-xs text-gray-500 mt-2 italic">
-              Akun: {selectedAccount.name}{" "}
-              {selectedAccount.type === "bank" && selectedAccount.bank_number
-                ? `(${selectedAccount.bank_number})`
-                : ""}
-            </div>
-          )}
-        </div>
-
-        {/* Status Keuangan */}
-        <div className="h-full">
-          <FinancialStatusCard
-            totalIncome={totalIncome}
-            totalExpense={totalExpense}
-            selectedAccount={selectedAccount}
-          />
-        </div>
-      </section>
+      {/* Status Keuangan */}
+      <div className="h-full">
+        <FinancialStatusCard
+          totalIncome={totalIncome}
+          totalExpense={totalExpense}
+          todayIncome={todayIncome}
+          todayExpense={todayExpense}
+          selectedAccount={selectedAccount}
+        />
+      </div>
 
       {/* Transactions */}
       <section className="bg-white rounded-xl shadow p-6 border border-gray-100 mt-6">

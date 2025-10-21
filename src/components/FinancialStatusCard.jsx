@@ -3,10 +3,14 @@ import React from "react";
 export default function FinancialStatusCard({
   totalIncome,
   totalExpense,
+  todayIncome,
+  todayExpense,
   selectedAccount,
 }) {
   const balance = totalIncome - totalExpense;
+  const todayBalance = todayIncome - todayExpense;
 
+  // 🔹 Status analisis keuangan (total)
   let status = {
     text: "Belum Ada Data",
     color: "text-gray-500",
@@ -66,93 +70,125 @@ export default function FinancialStatusCard({
   const displayRatio =
     totalIncome > 0 ? ((totalExpense / totalIncome) * 100).toFixed(1) : 100;
 
-  const formatRupiah = (number) =>
+  const formatRupiah = (num) =>
     new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
       maximumFractionDigits: 0,
-    }).format(number || 0);
+    }).format(num || 0);
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow border-l-4 border-indigo-500 transition hover:shadow-md">
-      {/* Header */}
-      <div className="flex justify-between items-start mb-2">
-        <div>
-          <div className="text-sm text-gray-500">
-            {selectedAccount
-              ? `Status Akun: ${selectedAccount.name}`
-              : "Status Keuangan"}
-          </div>
-          <div className={`text-2xl font-bold mt-1 ${status.color}`}>
-            {status.emoji} {status.text}
+    <div className="space-y-8">
+      {/* ===================== RINGKASAN KESELURUHAN ===================== */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow border-l-4 border-green-500">
+          <div className="text-sm text-gray-500">💰 Total Pemasukan</div>
+          <div className="text-4xl font-bold text-green-600 mt-1">
+            {formatRupiah(totalIncome)}
           </div>
         </div>
-        {selectedAccount?.type === "bank" && selectedAccount.bank_number && (
-          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
-            Rekening: {selectedAccount.bank_number}
-          </span>
-        )}
-      </div>
 
-      {/* Advice */}
-      <p className="text-gray-600 text-sm mt-1">{status.advice}</p>
+        <div className="bg-white p-6 rounded-xl shadow border-l-4 border-red-500">
+          <div className="text-sm text-gray-500">💸 Total Pengeluaran</div>
+          <div className="text-4xl font-bold text-red-600 mt-1">
+            {formatRupiah(totalExpense)}
+          </div>
+        </div>
 
-      {/* Visual progress */}
-      <div className="w-full bg-gray-200 h-2 rounded-full mt-3 overflow-hidden">
-        <div
-          className={`h-2 rounded-full transition-all duration-500 ease-in-out ${
-            status.color === "text-green-600"
-              ? "bg-green-500"
-              : status.color === "text-yellow-600"
-              ? "bg-yellow-500"
-              : status.color === "text-orange-600"
-              ? "bg-orange-500"
-              : "bg-red-500"
-          }`}
-          style={{ width: `${Math.min(displayRatio, 120)}%` }}
-        ></div>
-      </div>
-
-      {/* Summary */}
-      <div className="mt-4 text-gray-700 text-sm space-y-1">
-        <p>
-          💰 <strong>Pemasukan:</strong> {formatRupiah(totalIncome)}
-        </p>
-        <p>
-          💸 <strong>Pengeluaran:</strong> {formatRupiah(totalExpense)}
-        </p>
-        <p>
-          🧮 <strong>Saldo:</strong>{" "}
-          <span
-            className={`font-semibold ${
-              balance >= 0 ? "text-green-600" : "text-red-600"
+        <div className="bg-white p-6 rounded-xl shadow border-l-4 border-blue-500">
+          <div className="text-sm text-gray-500">🏦 Total Saldo</div>
+          <div
+            className={`text-4xl font-bold mt-1 ${
+              balance >= 0 ? "text-blue-600" : "text-red-600"
             }`}
           >
             {formatRupiah(balance)}
-          </span>
-        </p>
-        <p>
-          📊 <strong>Rasio Pengeluaran:</strong> {displayRatio}%
-        </p>
+          </div>
+        </div>
+
+        {/* 🔹 Status Keuangan */}
+        <div className="bg-white p-6 rounded-xl shadow border-l-4 border-indigo-500 transition hover:shadow-md">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <div className="text-sm text-gray-500">
+                {selectedAccount
+                  ? `Status Akun: ${selectedAccount.name}`
+                  : "Status Keuangan"}
+              </div>
+              <div className={`text-2xl font-bold mt-1 ${status.color}`}>
+                {status.emoji} {status.text}
+              </div>
+            </div>
+            {selectedAccount?.type === "bank" &&
+              selectedAccount.bank_number && (
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+                  Rekening: {selectedAccount.bank_number}
+                </span>
+              )}
+          </div>
+
+          <p className="text-gray-600 text-sm mt-1">{status.advice}</p>
+
+          {/* Progress bar */}
+          <div className="w-full bg-gray-200 h-2 rounded-full mt-3 overflow-hidden">
+            <div
+              className={`h-2 rounded-full transition-all duration-500 ${
+                status.color === "text-green-600"
+                  ? "bg-green-500"
+                  : status.color === "text-yellow-600"
+                  ? "bg-yellow-500"
+                  : status.color === "text-orange-600"
+                  ? "bg-orange-500"
+                  : "bg-red-500"
+              }`}
+              style={{ width: `${Math.min(displayRatio, 120)}%` }}
+            ></div>
+          </div>
+
+          <div className="mt-3 text-xs text-gray-600 space-y-1">
+            <p>
+              💰 <strong>Pemasukan:</strong> {formatRupiah(totalIncome)}
+            </p>
+            <p>
+              💸 <strong>Pengeluaran:</strong> {formatRupiah(totalExpense)}
+            </p>
+            <p>
+              📊 <strong>Rasio:</strong> {displayRatio}%
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Legend */}
-      <div className="mt-4 text-xs text-gray-600 border-t pt-3">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="w-3 h-3 bg-green-500 rounded-full inline-block"></span>
-          <span>Sehat (≤ 50%)</span>
-        </div>
-        <div className="flex items-center gap-2 mb-1">
-          <span className="w-3 h-3 bg-yellow-500 rounded-full inline-block"></span>
-          <span>Cukup Baik (51%-80%)</span>
-        </div>
-        <div className="flex items-center gap-2 mb-1">
-          <span className="w-3 h-3 bg-orange-500 rounded-full inline-block"></span>
-          <span>Waspada (81%-100%)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 bg-red-500 rounded-full inline-block"></span>
-          <span>Tidak Sehat (- 100%)</span>
+      {/* ===================== RINGKASAN HARI INI ===================== */}
+      <div>
+        <h3 className="text-gray-600 text-sm font-semibold mb-3">
+          📅 Ringkasan Hari Ini
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-green-50 p-6 rounded-xl shadow border-l-4 border-green-400">
+            <div className="text-sm text-gray-600">📥 Pemasukan Hari Ini</div>
+            <div className="text-4xl font-bold text-green-600 mt-1">
+              {formatRupiah(todayIncome)}
+            </div>
+          </div>
+
+          <div className="bg-red-50 p-6 rounded-xl shadow border-l-4 border-red-400">
+            <div className="text-sm text-gray-600">📤 Pengeluaran Hari Ini</div>
+            <div className="text-4xl font-bold text-red-600 mt-1">
+              {formatRupiah(todayExpense)}
+            </div>
+          </div>
+
+          <div className="bg-blue-50 p-6 rounded-xl shadow border-l-4 border-blue-400">
+            <div className="text-sm text-gray-600">💵 Saldo Hari Ini</div>
+            <div
+              className={`text-4xl font-bold mt-1 ${
+                todayBalance >= 0 ? "text-blue-600" : "text-red-600"
+              }`}
+            >
+              {formatRupiah(todayBalance)}
+            </div>
+          </div>
         </div>
       </div>
     </div>

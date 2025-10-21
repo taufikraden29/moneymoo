@@ -148,11 +148,10 @@ export default function Auth() {
                   <button
                     key={tab}
                     onClick={() => setMode(tab)}
-                    className={`flex-1 py-2 text-center font-semibold transition-all ${
-                      mode === tab
+                    className={`flex-1 py-2 text-center font-semibold transition-all ${mode === tab
                         ? "border-b-4 border-blue-500 text-blue-600"
                         : "text-gray-500 hover:text-blue-500"
-                    }`}
+                      }`}
                   >
                     {tab === "login" ? "Masuk" : "Daftar"}
                   </button>
@@ -219,8 +218,8 @@ export default function Auth() {
                   {loading
                     ? "Memproses..."
                     : mode === "login"
-                    ? "Masuk Sekarang"
-                    : "Buat Akun"}
+                      ? "Masuk Sekarang"
+                      : "Buat Akun"}
                 </button>
               </form>
 

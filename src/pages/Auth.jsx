@@ -26,9 +26,9 @@ export default function Auth() {
 
   // Hero Slider
   const images = [
-    "/public/Slide-1.webp",
-    "/public/Slide-1.webp",
-    "/public/Slide-1.webp",
+    "https://i.imgur.com/RRRWyNr.png",
+    "https://i.imgur.com/RRRWyNr.png",
+    "https://i.imgur.com/RRRWyNr.png",
   ];
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -149,8 +149,8 @@ export default function Auth() {
                     key={tab}
                     onClick={() => setMode(tab)}
                     className={`flex-1 py-2 text-center font-semibold transition-all ${mode === tab
-                        ? "border-b-4 border-blue-500 text-blue-600"
-                        : "text-gray-500 hover:text-blue-500"
+                      ? "border-b-4 border-blue-500 text-blue-600"
+                      : "text-gray-500 hover:text-blue-500"
                       }`}
                   >
                     {tab === "login" ? "Masuk" : "Daftar"}

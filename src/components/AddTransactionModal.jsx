@@ -73,7 +73,18 @@ export default function AddTransactionModal({ open, onClose }) {
         description: "",
         amount: "",
       });
-      onClose(); // 🔹 Tutup modal setelah sukses
+
+      // Panggil callback dari parent agar list transaksi di Dashboard terupdate
+      if (onAdd) {
+        onAdd({
+          user_id: user.id,
+          ...form,
+          amount: cleanAmount,
+          created_at: new Date(),
+        });
+      }
+
+      onClose(); // Tutup modal
     }
   };
 

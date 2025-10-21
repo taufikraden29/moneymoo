@@ -5,6 +5,7 @@ import {
   getTransactions,
   updateTransaction,
   deleteTransaction,
+  saveTransaction,
 } from "../services/TransactionService";
 import EditTransactionModal from "../components/EditTransactionModal";
 import ReportChart from "../components/ReportChart";
@@ -115,6 +116,20 @@ export default function Dashboard() {
     }, 300);
     return () => clearTimeout(timer);
   }, [from, to, filterType, filterCategory, q]);
+
+
+  const handleAddTransaction = async (transactionData) => {
+    try {
+      // Simpan transaksi baru ke database
+      await saveTransaction(transactionData);
+      // Refresh daftar transaksi agar otomatis terupdate
+      await loadTransactions();
+      toast.success("Transaksi berhasil ditambahkan!");
+    } catch (err) {
+      console.error("Gagal menambah transaksi:", err);
+      toast.error("Gagal menambah transaksi");
+    }
+  };
 
   const handleDelete = async (id) => {
     toast(
@@ -237,6 +252,13 @@ export default function Dashboard() {
             open={addModalOpen}
             onClose={() => setAddModalOpen(false)}
           />
+          <AddTransactionModal
+            open={addModalOpen}
+            onClose={() => {
+              setAddModalOpen(false);
+            }}
+            onAdd={handleAddTransaction}
+          />
 
           <button
             onClick={async () => {
@@ -305,21 +327,19 @@ export default function Dashboard() {
           <div className="flex gap-2">
             <button
               onClick={() => setChartType("expense")}
-              className={`px-3 py-1 rounded-lg text-sm ${
-                chartType === "expense"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-600"
-              }`}
+              className={`px-3 py-1 rounded-lg text-sm ${chartType === "expense"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-600"
+                }`}
             >
               Pengeluaran
             </button>
             <button
               onClick={() => setChartType("income")}
-              className={`px-3 py-1 rounded-lg text-sm ${
-                chartType === "income"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-600"
-              }`}
+              className={`px-3 py-1 rounded-lg text-sm ${chartType === "income"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-600"
+                }`}
             >
               Pemasukan
             </button>
@@ -347,9 +367,8 @@ export default function Dashboard() {
         <div className="bg-white p-6 rounded-xl shadow border-l-4 border-blue-600">
           <div className="text-sm text-gray-500">Saldo</div>
           <div
-            className={`text-5xl font-bold mt-1 ${
-              balance >= 0 ? "text-blue-600" : "text-red-600"
-            }`}
+            className={`text-5xl font-bold mt-1 ${balance >= 0 ? "text-blue-600" : "text-red-600"
+              }`}
           >
             Rp {balance.toLocaleString("id-ID")}
           </div>
@@ -379,23 +398,50 @@ export default function Dashboard() {
                 className="flex justify-between items-center py-3 hover:bg-gray-50 transition rounded-lg px-2"
               >
                 <div>
-                  <div className="font-medium text-gray-800">
-                    {trx.category}
-                  </div>
+                  <div className="font-medium text-gray-800">{trx.category}</div>
                   <div className="text-xs text-gray-500">
-                    {new Date(trx.date).toLocaleDateString("id-ID", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}{" "}
-                    • {trx.description || "-"}
+                    {/* Tampilkan tanggal dan waktu dari trx.created_at atau trx.date */}
+                    {trx.created_at ? (
+                      <>
+                        {new Date(trx.created_at).toLocaleString("id-ID", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                        <br />
+                        {new Date(trx.created_at).toLocaleDateString("id-ID", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })} • {trx.description || "-"}
+                      </>
+                    ) : (
+                      <>
+                        {new Date(trx.date).toLocaleString("id-ID", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                        <br />
+                        {new Date(trx.date).toLocaleDateString("id-ID", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })} • {trx.description || "-"}
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div
-                    className={`font-semibold text-sm ${
-                      trx.type === "income" ? "text-green-600" : "text-red-500"
-                    }`}
+                    className={`font-semibold text-sm ${trx.type === "income" ? "text-green-600" : "text-red-500"
+                      }`}
                   >
                     {trx.type === "income" ? "+" : "-"} Rp{" "}
                     {Number(trx.amount).toLocaleString("id-ID")}
@@ -419,21 +465,23 @@ export default function Dashboard() {
         )}
       </section>
 
-      {modalOpen && (
-        <EditTransactionModal
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          transaction={editing}
-          categories={categories}
-          onSaved={handleSaveEdit}
-        />
-      )}
+      {
+        modalOpen && (
+          <EditTransactionModal
+            open={modalOpen}
+            onClose={() => setModalOpen(false)}
+            transaction={editing}
+            categories={categories}
+            onSaved={handleSaveEdit}
+          />
+        )
+      }
 
       {/* 🧩 Modal Kategori */}
       <CategoryModal
         open={showCategoryModal}
         onClose={() => setShowCategoryModal(false)}
       />
-    </div>
+    </div >
   );
 }

@@ -50,3 +50,11 @@ export async function deleteTransaction(id) {
   if (error) throw error;
   return true; // Tambahkan ini
 }
+
+export const saveTransaction = async (transactionData) => {
+  const { data, error } = await supabase
+    .from("transactions")
+    .insert([transactionData]);
+  if (error) throw error;
+  return data;
+};

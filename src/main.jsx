@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import AddTransaction from "./pages/AddTransaction";
 import Categories from "./pages/CategoriesPage.jsx";
 import UpdatePassword from "./pages/UpdatePassword.jsx";
+import Account from "./pages/Account.jsx";
 
 import ProtectedRoute from "./components/ProtectedRoute"; // sesuaikan path
 
@@ -62,6 +63,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         element={
           <ProtectedRoute>
             <UpdatePassword />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/akun"
+        element={
+          <ProtectedRoute>
+            <Account />
           </ProtectedRoute>
         }
       />

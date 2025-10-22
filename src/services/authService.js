@@ -1,14 +1,33 @@
 // src/services/authService.js
 import { supabase } from "../lib/supabaseClient";
 
-export async function registerUser(email, password, secret, SECRET_KEY) {
+/**
+ * Register user baru dengan validasi dan metadata tambahan (displayName)
+ */
+export async function registerUser(
+  email,
+  password,
+  secret,
+  SECRET_KEY,
+  displayName
+) {
   if (!email || !password) throw new Error("Email dan password wajib diisi!");
   if (password.length < 6) throw new Error("Password minimal 6 karakter!");
-
   if (!secret) throw new Error("Kunci rahasia wajib diisi!");
   if (secret !== SECRET_KEY) throw new Error("Kunci rahasia tidak valid!");
+  if (!displayName) throw new Error("Nama pengguna wajib diisi!");
 
-  const { error } = await supabase.auth.signUp({ email, password });
+  // 👇 Mendaftarkan user ke Supabase + metadata nama
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        display_name: displayName, // user_metadata field
+      },
+    },
+  });
+
   if (error) {
     if (error.message.includes("already registered")) {
       throw new Error("Email sudah terdaftar, silakan masuk.");
@@ -20,6 +39,9 @@ export async function registerUser(email, password, secret, SECRET_KEY) {
   return "Pendaftaran berhasil! Silakan verifikasi email Anda.";
 }
 
+/**
+ * Login user
+ */
 export async function loginUser(email, password) {
   if (!email || !password) throw new Error("Email dan password wajib diisi!");
 
@@ -44,6 +66,9 @@ export async function loginUser(email, password) {
   return "Berhasil masuk!";
 }
 
+/**
+ * Reset password
+ */
 export async function resetPassword(email) {
   if (!email) throw new Error("Masukkan email terlebih dahulu!");
 

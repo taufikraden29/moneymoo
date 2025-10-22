@@ -14,6 +14,8 @@ import FinancialStatusCard from "../components/FinancialStatusCard";
 import CategoryModal from "../components/CategoryModal";
 import AddTransactionModal from "../components/AddTransactionModal";
 import AffirmationCard from "@/components/AffirmationCard";
+import AccountModal from "../components/AccountModal";
+import StatusCardAccount from "../components/StatusCardAccount";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -26,6 +28,11 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+
+  // Akun
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [accounts, setAccounts] = useState([]);
 
   // Filters
   const [from, setFrom] = useState("");
@@ -41,6 +48,11 @@ export default function Dashboard() {
   // Chart
   const [chartData, setChartData] = useState([]);
   const [chartType, setChartType] = useState("expense");
+
+  // Transaction
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -111,19 +123,55 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (user) loadTransactions();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [from, to, filterType, filterCategory, q]);
+    if (user) {
+      loadTransactions();
+      loadAccounts(); // 🔹 Tambahkan ini
+    }
+  }, [user]);
 
+  const loadAccounts = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("accounts")
+      .select("*")
+      .eq("user_id", user.id);
+
+    if (error) console.error(error);
+    else setAccounts(data || []);
+  };
+
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     if (user) loadTransactions();
+  //   }, 300);
+  //   return () => clearTimeout(timer);
+  // }, [from, to, filterType, filterCategory, q]);
+
+  useEffect(() => {
+    const loadTransactions = async () => {
+      setLoading(true);
+      const start = (page - 1) * limit;
+      const end = start + limit - 1;
+
+      const { data, count } = await supabase
+        .from("transactions")
+        .select("*", { count: "exact" })
+        .eq("user_id", user.id)
+        .order("date", { ascending: false })
+        .range(start, end);
+
+      setTransactions(data || []);
+      setTotalPages(Math.ceil(count / limit));
+      setLoading(false);
+    };
+
+    if (user) loadTransactions();
+  }, [user, page, limit, filterType, filterCategory, from, to, q]);
 
   const handleAddTransaction = async (transactionData) => {
     try {
-      // Simpan transaksi baru ke database
       await saveTransaction(transactionData);
-      // Refresh daftar transaksi agar otomatis terupdate
-      await loadTransactions();
+      await Promise.all([loadTransactions(), loadAccounts()]); // 🔹 update keduanya
       toast.success("Transaksi berhasil ditambahkan!");
     } catch (err) {
       console.error("Gagal menambah transaksi:", err);
@@ -206,14 +254,33 @@ export default function Dashboard() {
 
   if (!authChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <h1 className="text-xl font-bold">Memeriksa sesi...</h1>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="relative flex flex-col items-center">
+          {/* Spinner */}
+          <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+
+          {/* Text */}
+          <h1 className="mt-6 text-lg font-semibold text-gray-700 animate-pulse">
+            Memeriksa sesi Anda...
+          </h1>
+
+          {/* Subtext */}
+          <p className="text-sm text-gray-500 mt-2">Mohon tunggu sebentar ✨</p>
+        </div>
       </div>
     );
   }
 
   if (!user) return null; // tidak render apapun jika user tidak ada
 
+  const today = new Date().toISOString().split("T")[0];
+  const todayTransactions = transactions.filter((t) => t.date === today);
+  const todayIncome = todayTransactions
+    .filter((t) => t.type === "income")
+    .reduce((sum, t) => sum + t.amount, 0);
+  const todayExpense = todayTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((sum, t) => sum + t.amount, 0);
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6">
       {/* Header */}
@@ -237,6 +304,13 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowAccountModal(true)}
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition"
+          >
+            💳 Akun
+          </button>
+
+          <button
             onClick={() => setShowCategoryModal(true)}
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition"
           >
@@ -248,15 +322,10 @@ export default function Dashboard() {
           >
             ➕ Tambah
           </button>
+
           <AddTransactionModal
             open={addModalOpen}
             onClose={() => setAddModalOpen(false)}
-          />
-          <AddTransactionModal
-            open={addModalOpen}
-            onClose={() => {
-              setAddModalOpen(false);
-            }}
             onAdd={handleAddTransaction}
           />
 
@@ -320,6 +389,32 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Account */}
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+        {accounts.map((acc) => {
+          const accTransactions = transactions.filter(
+            (t) => t.account_id === acc.id
+          );
+
+          const totalIncome = accTransactions
+            .filter((t) => t.type === "income")
+            .reduce((a, b) => a + Number(b.amount), 0);
+
+          const totalExpense = accTransactions
+            .filter((t) => t.type === "expense")
+            .reduce((a, b) => a + Number(b.amount), 0);
+
+          return (
+            <StatusCardAccount
+              key={acc.id}
+              account={acc}
+              totalIncome={totalIncome}
+              totalExpense={totalExpense}
+            />
+          );
+        })}
+      </section>
+
       {/* Chart */}
       <div className="bg-white rounded-xl shadow p-5 mb-8 border border-gray-100">
         <div className="flex justify-between items-center mb-4">
@@ -327,19 +422,21 @@ export default function Dashboard() {
           <div className="flex gap-2">
             <button
               onClick={() => setChartType("expense")}
-              className={`px-3 py-1 rounded-lg text-sm ${chartType === "expense"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-600"
-                }`}
+              className={`px-3 py-1 rounded-lg text-sm ${
+                chartType === "expense"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-600"
+              }`}
             >
               Pengeluaran
             </button>
             <button
               onClick={() => setChartType("income")}
-              className={`px-3 py-1 rounded-lg text-sm ${chartType === "income"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-200 text-gray-600"
-                }`}
+              className={`px-3 py-1 rounded-lg text-sm ${
+                chartType === "income"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-600"
+              }`}
             >
               Pemasukan
             </button>
@@ -348,140 +445,243 @@ export default function Dashboard() {
         <ReportChart data={chartData} />
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl shadow border-l-4 border-green-500">
-          <div className="text-sm text-gray-500">Pemasukan</div>
-          <div className="text-5xl font-bold text-green-600 mt-1">
-            Rp {totalIncome.toLocaleString("id-ID")}
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow border-l-4 border-red-500">
-          <div className="text-sm text-gray-500">Pengeluaran</div>
-          <div className="text-5xl font-bold text-red-500 mt-1">
-            Rp {totalExpense.toLocaleString("id-ID")}
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow border-l-4 border-blue-600">
-          <div className="text-sm text-gray-500">Saldo</div>
-          <div
-            className={`text-5xl font-bold mt-1 ${balance >= 0 ? "text-blue-600" : "text-red-600"
-              }`}
-          >
-            Rp {balance.toLocaleString("id-ID")}
-          </div>
-        </div>
-
-        {/* Status Keuangan */}
+      {/* Summary Section */}
+      {/* Status Keuangan */}
+      <div className="h-full">
         <FinancialStatusCard
           totalIncome={totalIncome}
           totalExpense={totalExpense}
+          todayIncome={todayIncome}
+          todayExpense={todayExpense}
+          selectedAccount={selectedAccount}
         />
       </div>
 
       {/* Transactions */}
-      <section className="bg-white rounded-xl shadow p-6 border border-gray-100">
-        <h2 className="text-lg font-semibold text-gray-700 mb-4">
-          📋 Daftar Transaksi
-        </h2>
+      <section className="bg-white rounded-xl shadow p-6 border border-gray-100 mt-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-3">
+          <h2 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+            📋 Daftar Transaksi
+          </h2>
+
+          {/* 🔹 Rows per page */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600">Tampilkan:</label>
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              className="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-blue-400"
+            >
+              {[10, 20, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <span className="text-sm text-gray-600">/ halaman</span>
+          </div>
+        </div>
+
+        {/* 🔹 FILTERS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400"
+          />
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400"
+          />
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="">Semua Tipe</option>
+            <option value="income">Pemasukan</option>
+            <option value="expense">Pengeluaran</option>
+          </select>
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400"
+          >
+            <option value="">Semua Kategori</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            placeholder="Cari deskripsi..."
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="border border-gray-300 px-3 py-2 rounded-lg text-sm col-span-2 focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+
+        {/* 🔹 TRANSACTIONS */}
         {loading ? (
           <p className="text-gray-500 text-sm">Memuat data...</p>
         ) : transactions.length === 0 ? (
           <p className="text-gray-500 text-sm">Belum ada transaksi</p>
         ) : (
-          <div className="divide-y divide-gray-200">
-            {transactions.map((trx) => (
-              <div
-                key={trx.id}
-                className="flex justify-between items-center py-3 hover:bg-gray-50 transition rounded-lg px-2"
-              >
-                <div>
-                  <div className="font-medium text-gray-800">{trx.category}</div>
-                  <div className="text-xs text-gray-500">
-                    {/* Tampilkan tanggal dan waktu dari trx.created_at atau trx.date */}
-                    {trx.created_at ? (
-                      <>
-                        {new Date(trx.created_at).toLocaleString("id-ID", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })}
-                        <br />
-                        {new Date(trx.created_at).toLocaleDateString("id-ID", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })} • {trx.description || "-"}
-                      </>
-                    ) : (
-                      <>
-                        {new Date(trx.date).toLocaleString("id-ID", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })}
-                        <br />
-                        {new Date(trx.date).toLocaleDateString("id-ID", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })} • {trx.description || "-"}
-                      </>
-                    )}
+          Object.entries(
+            transactions.reduce((acc, trx) => {
+              const dateObj = new Date(trx.date || trx.created_at);
+              const dateStr = dateObj.toISOString().split("T")[0];
+              if (!acc[dateStr]) acc[dateStr] = [];
+              acc[dateStr].push(trx);
+              return acc;
+            }, {})
+          )
+            .sort((a, b) => new Date(b[0]) - new Date(a[0]))
+            .map(([dateStr, trxs]) => {
+              const today = new Date();
+              const trxDate = new Date(dateStr);
+              const diffDays = Math.floor(
+                (today - trxDate) / (1000 * 60 * 60 * 24)
+              );
+
+              let label =
+                diffDays === 0
+                  ? "📅 Hari Ini"
+                  : diffDays === 1
+                  ? "📆 Kemarin"
+                  : trxDate.toLocaleDateString("id-ID", {
+                      weekday: "long",
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    });
+
+              return (
+                <div key={dateStr} className="mb-5">
+                  <h3 className="font-semibold text-gray-700 mb-3 border-b border-gray-200 pb-1">
+                    {label}
+                  </h3>
+
+                  <div className="divide-y divide-gray-200">
+                    {trxs.map((trx) => {
+                      const date = new Date(trx.created_at || trx.date);
+                      const tanggal = date.toLocaleDateString("id-ID", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      });
+                      const waktu = date.toLocaleTimeString("id-ID", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+
+                      return (
+                        <div
+                          key={trx.id}
+                          className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-3 hover:bg-gray-50 transition rounded-lg px-2"
+                        >
+                          {/* Kiri: Detail transaksi */}
+                          <div className="space-y-1">
+                            <div className="font-medium text-gray-800">
+                              {trx.category}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              🏦 {trx.account_name || "Tanpa Akun"}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {tanggal} • {waktu} • {trx.description || "-"}
+                            </div>
+                          </div>
+
+                          {/* Kanan: Jumlah + Aksi */}
+                          <div className="flex items-center gap-3 mt-2 sm:mt-0">
+                            <div
+                              className={`font-semibold text-sm ${
+                                trx.type === "income"
+                                  ? "text-green-600"
+                                  : "text-red-500"
+                              }`}
+                            >
+                              {trx.type === "income" ? "+" : "-"} Rp{" "}
+                              {Number(trx.amount).toLocaleString("id-ID")}
+                            </div>
+                            <button
+                              onClick={() => openEdit(trx)}
+                              className="text-xs px-2 py-1 bg-yellow-100 hover:bg-yellow-200 rounded transition"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => handleDelete(trx.id)}
+                              className="text-xs px-2 py-1 bg-red-100 hover:bg-red-200 rounded transition"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`font-semibold text-sm ${trx.type === "income" ? "text-green-600" : "text-red-500"
-                      }`}
-                  >
-                    {trx.type === "income" ? "+" : "-"} Rp{" "}
-                    {Number(trx.amount).toLocaleString("id-ID")}
-                  </div>
-                  <button
-                    onClick={() => openEdit(trx)}
-                    className="text-xs px-2 py-1 bg-yellow-100 hover:bg-yellow-200 rounded transition"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => handleDelete(trx.id)}
-                    className="text-xs px-2 py-1 bg-red-100 hover:bg-red-200 rounded transition"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })
+        )}
+
+        {/* 🔹 PAGINATION */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-6">
+            <button
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              disabled={page === 1}
+              className="px-3 py-1 border rounded-lg text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+            >
+              ⬅️ Prev
+            </button>
+            <span className="text-sm text-gray-700">
+              Halaman {page} dari {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              disabled={page === totalPages}
+              className="px-3 py-1 border rounded-lg text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+            >
+              Next ➡️
+            </button>
           </div>
         )}
       </section>
 
-      {
-        modalOpen && (
-          <EditTransactionModal
-            open={modalOpen}
-            onClose={() => setModalOpen(false)}
-            transaction={editing}
-            categories={categories}
-            onSaved={handleSaveEdit}
-          />
-        )
-      }
+      {modalOpen && (
+        <EditTransactionModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          transaction={editing}
+          categories={categories}
+          onSaved={handleSaveEdit}
+        />
+      )}
 
       {/* 🧩 Modal Kategori */}
       <CategoryModal
         open={showCategoryModal}
         onClose={() => setShowCategoryModal(false)}
       />
-    </div >
+
+      {/* Modal Akun */}
+      <AccountModal
+        open={showAccountModal}
+        onClose={() => setShowAccountModal(false)}
+        user={user}
+      />
+    </div>
   );
 }

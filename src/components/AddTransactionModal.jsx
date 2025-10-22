@@ -66,6 +66,11 @@ export default function AddTransactionModal({ open, onClose }) {
       toast.error("Gagal menambahkan transaksi!");
     } else {
       toast.success("Transaksi berhasil ditambahkan!");
+
+      // 🔊 Putar suara mesin kasir
+      const audio = new Audio("/sounds/cashin.mp3");
+      audio.play();
+
       setForm({
         date: today,
         type: "expense",
@@ -74,7 +79,6 @@ export default function AddTransactionModal({ open, onClose }) {
         amount: "",
       });
 
-      // Panggil callback dari parent agar list transaksi di Dashboard terupdate
       if (onAdd) {
         onAdd({
           user_id: user.id,
@@ -84,8 +88,9 @@ export default function AddTransactionModal({ open, onClose }) {
         });
       }
 
-      onClose(); // Tutup modal
+      onClose();
     }
+
   };
 
   if (!open) return null;

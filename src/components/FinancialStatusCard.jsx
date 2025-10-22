@@ -79,6 +79,38 @@ export default function FinancialStatusCard({
 
   return (
     <div className="space-y-8">
+      {/* ===================== RINGKASAN HARI INI ===================== */}
+      <div>
+        <h3 className="text-gray-600 text-sm font-semibold mb-3">
+          📅 Ringkasan Hari Ini
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-green-50 p-6 rounded-xl shadow border-l-4 border-green-400">
+            <div className="text-sm text-gray-600">📥 Pemasukan Hari Ini</div>
+            <div className="text-4xl font-bold text-green-600 mt-1">
+              {formatRupiah(todayIncome)}
+            </div>
+          </div>
+
+          <div className="bg-red-50 p-6 rounded-xl shadow border-l-4 border-red-400">
+            <div className="text-sm text-gray-600">📤 Pengeluaran Hari Ini</div>
+            <div className="text-4xl font-bold text-red-600 mt-1">
+              {formatRupiah(todayExpense)}
+            </div>
+          </div>
+
+          <div className="bg-blue-50 p-6 rounded-xl shadow border-l-4 border-blue-400">
+            <div className="text-sm text-gray-600">💵 Saldo Hari Ini</div>
+            <div
+              className={`text-4xl font-bold mt-1 ${
+                todayBalance >= 0 ? "text-blue-600" : "text-red-600"
+              }`}
+            >
+              {formatRupiah(todayBalance)}
+            </div>
+          </div>
+        </div>
+      </div>
       {/* ===================== RINGKASAN KESELURUHAN ===================== */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-xl shadow border-l-4 border-green-500">
@@ -155,39 +187,6 @@ export default function FinancialStatusCard({
             <p>
               📊 <strong>Rasio:</strong> {displayRatio}%
             </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ===================== RINGKASAN HARI INI ===================== */}
-      <div>
-        <h3 className="text-gray-600 text-sm font-semibold mb-3">
-          📅 Ringkasan Hari Ini
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-green-50 p-6 rounded-xl shadow border-l-4 border-green-400">
-            <div className="text-sm text-gray-600">📥 Pemasukan Hari Ini</div>
-            <div className="text-4xl font-bold text-green-600 mt-1">
-              {formatRupiah(todayIncome)}
-            </div>
-          </div>
-
-          <div className="bg-red-50 p-6 rounded-xl shadow border-l-4 border-red-400">
-            <div className="text-sm text-gray-600">📤 Pengeluaran Hari Ini</div>
-            <div className="text-4xl font-bold text-red-600 mt-1">
-              {formatRupiah(todayExpense)}
-            </div>
-          </div>
-
-          <div className="bg-blue-50 p-6 rounded-xl shadow border-l-4 border-blue-400">
-            <div className="text-sm text-gray-600">💵 Saldo Hari Ini</div>
-            <div
-              className={`text-4xl font-bold mt-1 ${
-                todayBalance >= 0 ? "text-blue-600" : "text-red-600"
-              }`}
-            >
-              {formatRupiah(todayBalance)}
-            </div>
           </div>
         </div>
       </div>

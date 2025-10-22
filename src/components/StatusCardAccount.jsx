@@ -3,22 +3,23 @@ import { FaWallet, FaUniversity, FaMoneyBillWave } from "react-icons/fa";
 
 export default function StatusCardAccount({
   account,
-  totalIncome,
-  totalExpense,
+  totalIncome = 0,
+  totalExpense = 0,
 }) {
   if (!account) return null;
 
   const balance = totalIncome - totalExpense;
 
-  // 🔹 Tentukan status keuangan per akun
+  // 🔹 Hitung rasio pengeluaran terhadap pemasukan
+  const ratio = totalIncome > 0 ? (totalExpense / totalIncome) * 100 : 0;
+
+  // 🔹 Tentukan status berdasarkan rasio
   let status = {
     label: "Belum Ada Data",
     emoji: "⚪",
     color: "text-gray-500",
     advice: "Tambahkan transaksi untuk akun ini.",
   };
-
-  const ratio = totalIncome > 0 ? (totalExpense / totalIncome) * 100 : 0;
 
   if (totalIncome === 0 && totalExpense === 0) {
     status = {
@@ -57,6 +58,7 @@ export default function StatusCardAccount({
     };
   }
 
+  // 🔹 Tentukan ikon berdasarkan tipe akun
   const Icon =
     account.type === "bank"
       ? FaUniversity
@@ -64,6 +66,7 @@ export default function StatusCardAccount({
       ? FaMoneyBillWave
       : FaWallet;
 
+  // 🔹 Format angka ke rupiah
   const formatRupiah = (num) =>
     new Intl.NumberFormat("id-ID", {
       style: "currency",

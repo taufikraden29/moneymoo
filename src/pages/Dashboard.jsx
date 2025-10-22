@@ -343,50 +343,15 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl shadow p-5 mb-6 border border-gray-100">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400"
-          />
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400"
-          />
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400"
-          >
-            <option value="">Semua Tipe</option>
-            <option value="income">Pemasukan</option>
-            <option value="expense">Pengeluaran</option>
-          </select>
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400"
-          >
-            <option value="">Semua Kategori</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="Cari deskripsi..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="border border-gray-300 px-3 py-2 rounded-lg text-sm col-span-2 focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
+      {/* Summary Section */}
+      <div className="h-full">
+        <FinancialStatusCard
+          totalIncome={totalIncome}
+          totalExpense={totalExpense}
+          todayIncome={todayIncome}
+          todayExpense={todayExpense}
+          selectedAccount={selectedAccount}
+        />
       </div>
 
       {/* Account */}
@@ -416,7 +381,7 @@ export default function Dashboard() {
       </section>
 
       {/* Chart */}
-      <div className="bg-white rounded-xl shadow p-5 mb-8 border border-gray-100">
+      <div className="bg-white rounded-xl shadow p-5 mb-8 border border-gray-100 mt-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-semibold text-gray-700">Grafik Transaksi</h2>
           <div className="flex gap-2">
@@ -443,18 +408,6 @@ export default function Dashboard() {
           </div>
         </div>
         <ReportChart data={chartData} />
-      </div>
-
-      {/* Summary Section */}
-      {/* Status Keuangan */}
-      <div className="h-full">
-        <FinancialStatusCard
-          totalIncome={totalIncome}
-          totalExpense={totalExpense}
-          todayIncome={todayIncome}
-          todayExpense={todayExpense}
-          selectedAccount={selectedAccount}
-        />
       </div>
 
       {/* Transactions */}

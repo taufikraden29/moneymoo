@@ -9,6 +9,8 @@ import AddTransaction from "./pages/AddTransaction";
 import Categories from "./pages/CategoriesPage.jsx";
 import UpdatePassword from "./pages/UpdatePassword.jsx";
 import Account from "./pages/Account.jsx";
+import DebtPage from "./pages/DebtPage";
+import PaymentPage from "./pages/PaymentPage";
 
 import ProtectedRoute from "./components/ProtectedRoute"; // sesuaikan path
 
@@ -72,6 +74,24 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         element={
           <ProtectedRoute>
             <Account />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/utang"
+        element={
+          <ProtectedRoute>
+            <DebtPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/payment"
+        element={
+          <ProtectedRoute>
+            <PaymentPage />
           </ProtectedRoute>
         }
       />

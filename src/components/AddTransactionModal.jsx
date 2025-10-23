@@ -18,10 +18,9 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
     amount: "",
   });
 
-  // Ambil user + data kategori & akun saat modal dibuka
+  // 🔹 Ambil user, kategori, dan akun saat modal dibuka
   useEffect(() => {
     if (!open) return;
-
     const loadData = async () => {
       const { data } = await supabase.auth.getSession();
       const currentUser = data.session?.user;
@@ -49,6 +48,7 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
     loadData();
   }, [open]);
 
+  // 🔹 Format input
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "amount") {
@@ -60,11 +60,21 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
     }
   };
 
-  const handleSubmit = (e) => {
+  // 🔹 Simpan transaksi
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!form.category || !form.amount || !form.date || !accountId)
       return toast.error("⚠️ Isi semua kolom wajib!");
+
+    // ✅ Mainkan suara langsung di klik (interaksi user)
+    try {
+      const cashSound = new Audio("/sounds/cashin.mp3");
+      cashSound.volume = 0.6;
+      cashSound.play().catch(() => { }); // cegah error autoplay
+    } catch (err) {
+      console.warn("Gagal memutar suara:", err);
+    }
 
     const cleanAmount = Number(form.amount.replace(/\D/g, ""));
     const transactionPayload = {
@@ -75,6 +85,16 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
       created_at: new Date(),
     };
 
+    const { error } = await supabase.from("transactions").insert([transactionPayload]);
+
+    if (error) {
+      toast.error("Gagal menambahkan transaksi!");
+      return;
+    }
+
+    toast.success("Transaksi berhasil ditambahkan!");
+
+    // 🔄 Reset form dan update list transaksi
     onAdd?.(transactionPayload);
     setForm({
       date: today,
@@ -84,7 +104,7 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
       amount: "",
     });
     setAccountId("");
-    onClose();
+    // onClose();
   };
 
   if (!open) return null;
@@ -105,7 +125,7 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
         </Transition.Child>
 
-        {/* Modal Content */}
+        {/* Modal */}
         <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6">
           <Transition.Child
             as={Fragment}
@@ -117,18 +137,14 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
             leaveTo="opacity-0 scale-95 translate-y-4"
           >
             <Dialog.Panel className="w-full max-w-md sm:max-w-lg lg:max-w-xl bg-white rounded-2xl p-6 sm:p-8 shadow-2xl border border-gray-100 overflow-y-auto max-h-[90vh]">
-              {/* Judul */}
               <Dialog.Title className="text-center text-2xl sm:text-3xl font-bold text-gray-800 mb-6">
                 💰 Tambah Transaksi
               </Dialog.Title>
 
-              {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* 🔹 Tanggal */}
+                {/* Tanggal */}
                 <div className="flex flex-col">
-                  <label className="text-gray-700 font-medium mb-1">
-                    Tanggal
-                  </label>
+                  <label className="text-gray-700 font-medium mb-1">Tanggal</label>
                   <input
                     type="date"
                     name="date"
@@ -139,7 +155,7 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
                   />
                 </div>
 
-                {/* 🔹 Akun */}
+                {/* Akun */}
                 <div className="flex flex-col">
                   <label className="text-gray-700 font-medium mb-1">Akun</label>
                   <select
@@ -151,20 +167,16 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
                     {accounts.map((acc) => (
                       <option key={acc.id} value={acc.id}>
                         {acc.name}{" "}
-                        {acc.type === "bank" && acc.bank_number
-                          ? `(${acc.bank_number})`
-                          : ""}
+                        {acc.type === "bank" && acc.bank_number ? `(${acc.bank_number})` : ""}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* 🔹 Jenis + Kategori */}
+                {/* Jenis + Kategori */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-gray-700 font-medium mb-1">
-                      Jenis
-                    </label>
+                    <label className="block text-gray-700 font-medium mb-1">Jenis</label>
                     <select
                       name="type"
                       value={form.type}
@@ -177,9 +189,7 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
                   </div>
 
                   <div>
-                    <label className="block text-gray-700 font-medium mb-1">
-                      Kategori
-                    </label>
+                    <label className="block text-gray-700 font-medium mb-1">Kategori</label>
                     <select
                       name="category"
                       value={form.category}
@@ -198,11 +208,9 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
                   </div>
                 </div>
 
-                {/* 🔹 Deskripsi */}
+                {/* Deskripsi */}
                 <div>
-                  <label className="block text-gray-700 font-medium mb-1">
-                    Deskripsi
-                  </label>
+                  <label className="block text-gray-700 font-medium mb-1">Deskripsi</label>
                   <input
                     type="text"
                     name="description"
@@ -213,11 +221,9 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
                   />
                 </div>
 
-                {/* 🔹 Jumlah */}
+                {/* Jumlah */}
                 <div>
-                  <label className="block text-gray-700 font-medium mb-1">
-                    Jumlah (Rp)
-                  </label>
+                  <label className="block text-gray-700 font-medium mb-1">Jumlah (Rp)</label>
                   <input
                     type="text"
                     name="amount"
@@ -228,7 +234,7 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
                   />
                 </div>
 
-                {/* 🔹 Tombol Simpan */}
+                {/* Tombol Simpan */}
                 <button
                   type="submit"
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg shadow-md transition text-lg"
@@ -237,7 +243,6 @@ export default function AddTransactionModal({ open, onClose, onAdd }) {
                 </button>
               </form>
 
-              {/* Tombol Tutup */}
               <div className="flex justify-center sm:justify-end mt-6">
                 <button
                   onClick={onClose}

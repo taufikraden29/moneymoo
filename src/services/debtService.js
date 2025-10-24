@@ -11,7 +11,7 @@ export const getDebts = async (user_id) => {
   if (error) throw error;
   return data;
 };
-
+ 
 export const addDebt = async (data) => {
   try {
     const {

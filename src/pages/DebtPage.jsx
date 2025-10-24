@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import toast from "react-hot-toast";
-import { getDebts, addDebt, deleteDebt } from "@/services/DebtService";
+import { getDebts, addDebt, deleteDebt } from "../services/debtService";
 import { motion } from "framer-motion";
 
 export default function DebtsPage() {

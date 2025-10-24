@@ -1,7 +1,7 @@
 // src/pages/PaymentPage.jsx
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { getDebts } from "@/services/debtService";
+import { getDebts } from "../services/debtService";
 import {
   getDebtPayments,
   addDebtPayment,

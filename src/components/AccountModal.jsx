@@ -3,17 +3,17 @@ import toast from "react-hot-toast";
 import { supabase } from "../lib/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function AccountModal({ open, onClose, user }) {
+export default function AccountModal({ open, onClose, user, onSuccess }) {
   const [accounts, setAccounts] = useState([]);
   const [form, setForm] = useState({
     name: "",
     type: "cash",
     accountNumber: "",
-    bankName: "",
+    bankName: "", // 🔥 Opsional: Hanya untuk UI, tidak disimpan ke database
     balance: ""
   });
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("add"); // "add" or "list"
+  const [activeTab, setActiveTab] = useState("add");
 
   const accountTypes = [
     { value: "cash", label: "💵 Tunai", icon: "💵" },
@@ -42,7 +42,13 @@ export default function AccountModal({ open, onClose, user }) {
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    if (!error) setAccounts(data || []);
+
+    if (error) {
+      console.error("❌ Error fetching accounts:", error);
+      toast.error("Gagal memuat data akun");
+    } else {
+      setAccounts(data || []);
+    }
   };
 
   const resetForm = () => {
@@ -57,7 +63,6 @@ export default function AccountModal({ open, onClose, user }) {
 
   const handleChange = (field, value) => {
     if (field === "balance") {
-      // Format currency input
       const numericValue = value.replace(/\D/g, "");
       const formatted = new Intl.NumberFormat("id-ID").format(numericValue);
       setForm(prev => ({ ...prev, [field]: formatted }));
@@ -70,13 +75,14 @@ export default function AccountModal({ open, onClose, user }) {
     setForm(prev => ({
       ...prev,
       bankName,
-      name: bankName // Auto-fill name dengan nama bank
+      name: `Akun ${bankName}` // Auto-generate nama akun
     }));
   };
 
   const handleAddAccount = async (e) => {
     e.preventDefault();
 
+    // Validasi
     if (!form.name.trim()) {
       toast.error("⚠️ Nama akun wajib diisi!");
       return;
@@ -90,17 +96,18 @@ export default function AccountModal({ open, onClose, user }) {
     setLoading(true);
 
     try {
+      // 🔥 SESUAIKAN DENGAN SCHEMA YANG ADA
       const accountData = {
         user_id: user.id,
         name: form.name.trim(),
         type: form.type,
         account_number: form.type === "bank" ? form.accountNumber.trim() : null,
-        bank_name: form.type === "bank" ? form.bankName : null,
+        // 🔥 HAPUS bank_name karena tidak ada di schema
         balance: Number(form.balance.replace(/\D/g, "")) || 0,
         created_at: new Date().toISOString()
       };
 
-      console.log("📤 Creating account:", accountData);
+      console.log("📤 Creating account with data:", accountData);
 
       const { data, error } = await supabase
         .from("accounts")
@@ -110,13 +117,29 @@ export default function AccountModal({ open, onClose, user }) {
 
       if (error) {
         console.error("❌ Supabase error:", error);
-        throw error;
+
+        // Handle specific error cases
+        if (error.code === '42501') {
+          toast.error("❌ Tidak memiliki izin untuk menambah akun");
+        } else if (error.code === '23505') {
+          toast.error("❌ Akun dengan nama yang sama sudah ada");
+        } else {
+          throw error;
+        }
+        return;
       }
 
+      console.log("✅ Account created successfully:", data);
       toast.success("✅ Akun berhasil ditambahkan!");
+
       resetForm();
       await fetchAccounts();
-      setActiveTab("list"); // Switch to list tab after success
+      setActiveTab("list");
+
+      // Notify parent component
+      if (onSuccess) {
+        onSuccess(data);
+      }
 
     } catch (err) {
       console.error("❌ Error adding account:", err);
@@ -146,11 +169,20 @@ export default function AccountModal({ open, onClose, user }) {
                     .delete()
                     .eq("id", id);
 
-                  if (error) throw error;
+                  if (error) {
+                    console.error("❌ Error deleting account:", error);
+                    throw error;
+                  }
 
                   toast.success("✅ Akun berhasil dihapus!");
                   await fetchAccounts();
+
+                  if (onSuccess) {
+                    onSuccess();
+                  }
+
                 } catch (err) {
+                  console.error("❌ Delete error:", err);
                   toast.error("❌ Gagal menghapus akun!");
                 }
               }}
@@ -185,6 +217,14 @@ export default function AccountModal({ open, onClose, user }) {
       currency: "IDR",
       minimumFractionDigits: 0,
     }).format(balance || 0);
+  };
+
+  // Helper untuk menampilkan info bank (jika ada di data)
+  const getBankInfo = (account) => {
+    if (account.type === "bank" && account.account_number) {
+      return `• ${account.account_number}`;
+    }
+    return "";
   };
 
   if (!open) return null;
@@ -228,8 +268,8 @@ export default function AccountModal({ open, onClose, user }) {
                 <button
                   onClick={() => setActiveTab("add")}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "add"
-                    ? "bg-white text-blue-600"
-                    : "bg-blue-500/50 text-blue-100 hover:bg-blue-500/70"
+                      ? "bg-white text-blue-600"
+                      : "bg-blue-500/50 text-blue-100 hover:bg-blue-500/70"
                     }`}
                 >
                   ➕ Tambah Baru
@@ -237,8 +277,8 @@ export default function AccountModal({ open, onClose, user }) {
                 <button
                   onClick={() => setActiveTab("list")}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "list"
-                    ? "bg-white text-blue-600"
-                    : "bg-blue-500/50 text-blue-100 hover:bg-blue-500/70"
+                      ? "bg-white text-blue-600"
+                      : "bg-blue-500/50 text-blue-100 hover:bg-blue-500/70"
                     }`}
                 >
                   📋 Daftar Akun ({accounts.length})
@@ -269,8 +309,8 @@ export default function AccountModal({ open, onClose, user }) {
                               type="button"
                               onClick={() => handleChange("type", accountType.value)}
                               className={`p-3 rounded-xl border-2 transition-all text-xs font-medium ${form.type === accountType.value
-                                ? "border-blue-500 bg-blue-50 text-blue-700"
-                                : "border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300"
+                                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                                  : "border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300"
                                 }`}
                             >
                               <div className="text-base mb-1">{accountType.icon}</div>
@@ -280,7 +320,7 @@ export default function AccountModal({ open, onClose, user }) {
                         </div>
                       </div>
 
-                      {/* Nama Bank (hanya untuk bank) */}
+                      {/* Nama Bank (hanya untuk UI, tidak disimpan) */}
                       {form.type === "bank" && (
                         <div>
                           <label className="block text-gray-700 mb-2 font-semibold text-sm">
@@ -293,8 +333,8 @@ export default function AccountModal({ open, onClose, user }) {
                                 type="button"
                                 onClick={() => handleBankSelect(bank)}
                                 className={`px-3 py-1 rounded-lg text-xs transition-colors ${form.bankName === bank
-                                  ? "bg-blue-100 text-blue-700 border border-blue-300"
-                                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                    ? "bg-blue-100 text-blue-700 border border-blue-300"
+                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                                   }`}
                               >
                                 {bank}
@@ -327,6 +367,7 @@ export default function AccountModal({ open, onClose, user }) {
                                   "Contoh: Saham, Reksadana, Emas"
                           }
                           className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
                         />
                       </div>
 
@@ -342,6 +383,7 @@ export default function AccountModal({ open, onClose, user }) {
                             onChange={(e) => handleChange("accountNumber", e.target.value)}
                             placeholder="Masukkan nomor rekening"
                             className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
                           />
                         </div>
                       )}
@@ -363,6 +405,11 @@ export default function AccountModal({ open, onClose, user }) {
                             className="w-full border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-right font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
+                        {form.balance && (
+                          <p className="text-xs text-gray-500 mt-1 text-right">
+                            Saldo: Rp {form.balance}
+                          </p>
+                        )}
                       </div>
 
                       {/* Submit Button */}
@@ -372,8 +419,8 @@ export default function AccountModal({ open, onClose, user }) {
                         whileHover={{ scale: loading ? 1 : 1.02 }}
                         whileTap={{ scale: loading ? 1 : 0.98 }}
                         className={`w-full py-4 rounded-xl font-semibold text-white shadow-lg transition-all ${loading
-                          ? "bg-gray-400 cursor-not-allowed"
-                          : "bg-blue-600 hover:bg-blue-700"
+                            ? "bg-gray-400 cursor-not-allowed"
+                            : "bg-blue-600 hover:bg-blue-700"
                           }`}
                       >
                         {loading ? (
@@ -425,12 +472,7 @@ export default function AccountModal({ open, onClose, user }) {
                                 </p>
                                 <div className="flex items-center gap-2 text-xs text-gray-500">
                                   <span className="capitalize">{account.type}</span>
-                                  {account.type === "bank" && account.account_number && (
-                                    <>
-                                      <span>•</span>
-                                      <span>{account.account_number}</span>
-                                    </>
-                                  )}
+                                  {getBankInfo(account)}
                                 </div>
                                 <p className="text-sm font-medium text-blue-600 mt-1">
                                   {formatBalance(account.balance)}

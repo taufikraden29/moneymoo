@@ -59,6 +59,9 @@ export default function Dashboard() {
   const [showFilters, setShowFilters] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
 
+  // 🔥 NEW: Refresh state untuk force update
+  const [refreshKey, setRefreshKey] = useState(0);
+
   useEffect(() => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -76,8 +79,9 @@ export default function Dashboard() {
     if (user) {
       loadCategories();
       loadAccounts();
+      loadTransactions();
     }
-  }, [user]);
+  }, [user, refreshKey]); // 🔥 ADD refreshKey dependency
 
   useEffect(() => {
     if (transactions.length > 0) {
@@ -98,12 +102,18 @@ export default function Dashboard() {
   }, [transactions, chartType]);
 
   const loadCategories = async () => {
+    console.log("🔄 Loading categories...");
     const { data, error } = await supabase
       .from("categories")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    if (!error) setCategories(data || []);
+    if (!error) {
+      setCategories(data || []);
+      console.log("✅ Categories loaded:", data?.length);
+    } else {
+      console.error("❌ Error loading categories:", error);
+    }
   };
 
   const loadTransactions = async (pageParam = 1, limitParam = 10) => {
@@ -133,6 +143,7 @@ export default function Dashboard() {
     } else {
       setTransactions(data || []);
       setTotalPages(Math.ceil(count / limitParam));
+      console.log("✅ Transactions loaded:", data?.length);
     }
     setLoading(false);
   };
@@ -141,38 +152,91 @@ export default function Dashboard() {
     if (user) {
       loadTransactions(page, limit);
     }
-  }, [user, page, limit, filterType, filterCategory, from, to, q]);
+  }, [user, page, limit, filterType, filterCategory, from, to, q, refreshKey]); // 🔥 ADD refreshKey
 
   const loadAccounts = async () => {
     if (!user) return;
+    console.log("🔄 Loading accounts...");
     const { data, error } = await supabase
       .from("accounts")
       .select("*")
       .eq("user_id", user.id);
 
-    if (error) console.error(error);
-    else setAccounts(data || []);
+    if (error) {
+      console.error("❌ Error loading accounts:", error);
+    } else {
+      setAccounts(data || []);
+      console.log("✅ Accounts loaded:", data?.length);
+    }
+  };
+
+  // 🔥 NEW: Refresh function untuk manual update
+  const refreshData = () => {
+    console.log("🔄 Manual refresh triggered");
+    setRefreshKey(prev => prev + 1);
   };
 
   const handleAddTransaction = async (transactionData) => {
     try {
-      const { error } = await supabase.from("transactions").insert([
-        {
-          user_id: user.id,
-          ...transactionData,
-          date: new Date().toISOString().split('T')[0],
-        },
+      console.log("📤 Adding transaction from dashboard...", transactionData);
+
+      // 🔥 FIX: Prevent duplicate submission
+      if (loading) {
+        console.log("⚠️ Transaction submission blocked: already loading");
+        return;
+      }
+
+      setLoading(true);
+
+      // 🔥 FIX: Check for duplicate transaction before inserting
+      const { data: existingTransaction } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("amount", transactionData.amount)
+        .eq("description", transactionData.description)
+        .eq("category", transactionData.category)
+        .eq("date", transactionData.date)
+        .single();
+
+      if (existingTransaction) {
+        toast.error("❌ Transaksi dengan detail yang sama sudah ada!");
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("transactions")
+        .insert([
+          {
+            user_id: user.id,
+            ...transactionData,
+            created_at: new Date().toISOString(),
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error("❌ Error adding transaction:", error);
+        throw error;
+      }
+
+      console.log("✅ Transaction added successfully:", data);
+      toast.success("✅ Transaksi berhasil ditambahkan!");
+      setAddModalOpen(false);
+
+      // 🔥 FIX: Refresh semua data setelah transaksi berhasil
+      await Promise.all([
+        loadTransactions(),
+        loadAccounts() // Refresh accounts karena saldo mungkin berubah
       ]);
 
-      if (!error) {
-        toast.success("Transaksi berhasil ditambahkan!");
-        setAddModalOpen(false);
-        loadTransactions();
-      } else {
-        toast.error("Gagal menambahkan transaksi!");
-      }
     } catch (error) {
-      toast.error("Terjadi kesalahan!");
+      console.error("❌ Error in handleAddTransaction:", error);
+      toast.error(`❌ Gagal menambahkan transaksi: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -195,7 +259,8 @@ export default function Dashboard() {
                     },
                     { position: "top-center" }
                   );
-                  setTransactions((prev) => prev.filter((trx) => trx.id !== id));
+                  // 🔥 FIX: Refresh data setelah hapus
+                  await loadTransactions();
                 } catch (err) {
                   console.error("Error saat hapus:", err);
                 }
@@ -237,7 +302,19 @@ export default function Dashboard() {
       { position: "top-center" }
     );
     await promise;
+    // 🔥 FIX: Refresh data setelah edit
     await loadTransactions();
+  };
+
+  // 🔥 NEW: Handler untuk success dari modal
+  const handleAccountSuccess = () => {
+    console.log("✅ Account added/updated, refreshing data...");
+    refreshData();
+  };
+
+  const handleCategorySuccess = () => {
+    console.log("✅ Category added/updated, refreshing data...");
+    refreshData();
   };
 
   const totalIncome = transactions
@@ -366,6 +443,14 @@ export default function Dashboard() {
               >
                 ➕ Tambah
               </button>
+              {/* 🔥 NEW: Refresh Button */}
+              <button
+                onClick={refreshData}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                title="Refresh data"
+              >
+                🔄
+              </button>
               <button
                 onClick={async () => {
                   await supabase.auth.signOut();
@@ -418,8 +503,8 @@ export default function Dashboard() {
                       <button
                         onClick={() => setChartType("expense")}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${chartType === "expense"
-                            ? "bg-blue-600 text-white shadow-sm"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                           }`}
                       >
                         Pengeluaran
@@ -427,8 +512,8 @@ export default function Dashboard() {
                       <button
                         onClick={() => setChartType("income")}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${chartType === "income"
-                            ? "bg-blue-600 text-white shadow-sm"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                           }`}
                       >
                         Pemasukan
@@ -450,32 +535,46 @@ export default function Dashboard() {
                 exit={{ opacity: 0, y: -20 }}
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
               >
-                {accounts.map((acc) => {
-                  const accTransactions = transactions.filter(
-                    (t) => t.account_id === acc.id
-                  );
-                  const totalIncome = accTransactions
-                    .filter((t) => t.type === "income")
-                    .reduce((a, b) => a + Number(b.amount), 0);
-                  const totalExpense = accTransactions
-                    .filter((t) => t.type === "expense")
-                    .reduce((a, b) => a + Number(b.amount), 0);
-
-                  return (
-                    <motion.div
-                      key={acc.id}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      transition={{ type: "spring", stiffness: 300 }}
+                {accounts.length === 0 ? (
+                  <div className="col-span-full text-center py-8 bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div className="text-6xl text-gray-300 mb-4">💳</div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Belum Ada Akun</h3>
+                    <p className="text-gray-600 mb-4">Tambahkan akun pertama Anda untuk mulai mencatat transaksi</p>
+                    <button
+                      onClick={() => setShowAccountModal(true)}
+                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                     >
-                      <StatusCardAccount
-                        account={acc}
-                        totalIncome={totalIncome}
-                        totalExpense={totalExpense}
-                      />
-                    </motion.div>
-                  );
-                })}
+                      ➕ Tambah Akun Pertama
+                    </button>
+                  </div>
+                ) : (
+                  accounts.map((acc) => {
+                    const accTransactions = transactions.filter(
+                      (t) => t.account_id === acc.id
+                    );
+                    const totalIncome = accTransactions
+                      .filter((t) => t.type === "income")
+                      .reduce((a, b) => a + Number(b.amount), 0);
+                    const totalExpense = accTransactions
+                      .filter((t) => t.type === "expense")
+                      .reduce((a, b) => a + Number(b.amount), 0);
+
+                    return (
+                      <motion.div
+                        key={acc.id}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                      >
+                        <StatusCardAccount
+                          account={acc}
+                          totalIncome={totalIncome}
+                          totalExpense={totalExpense}
+                        />
+                      </motion.div>
+                    );
+                  })
+                )}
               </motion.section>
             )}
           </AnimatePresence>
@@ -662,8 +761,8 @@ export default function Dashboard() {
                                     <div className="flex items-center gap-2 ml-3">
                                       <div
                                         className={`font-semibold text-sm whitespace-nowrap ${trx.type === "income"
-                                            ? "text-green-600"
-                                            : "text-red-500"
+                                          ? "text-green-600"
+                                          : "text-red-500"
                                           }`}
                                       >
                                         {trx.type === "income" ? "+" : "-"} Rp{" "}
@@ -744,12 +843,14 @@ export default function Dashboard() {
       <CategoryModal
         open={showCategoryModal}
         onClose={() => setShowCategoryModal(false)}
+        onSuccess={handleCategorySuccess} // 🔥 NEW: Add success callback
       />
 
       <AccountModal
         open={showAccountModal}
         onClose={() => setShowAccountModal(false)}
         user={user}
+        onSuccess={handleAccountSuccess} // 🔥 NEW: Add success callback
       />
     </motion.div>
   );

@@ -10,7 +10,6 @@ import Categories from "./pages/CategoriesPage.jsx";
 import UpdatePassword from "./pages/UpdatePassword.jsx";
 import Account from "./pages/Account.jsx";
 import DebtPage from "./pages/DebtPage";
-import PaymentPage from "./pages/PaymentPage";
 
 import ProtectedRoute from "./components/ProtectedRoute"; // sesuaikan path
 
@@ -87,14 +86,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         }
       />
 
-      <Route
-        path="/payment"
-        element={
-          <ProtectedRoute>
-            <PaymentPage />
-          </ProtectedRoute>
-        }
-      />
     </Routes>
   </BrowserRouter>
 );

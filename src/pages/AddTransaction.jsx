@@ -9,6 +9,7 @@ export default function AddTransaction() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCategoryHint, setShowCategoryHint] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // 🔥 NEW: Prevent double submission
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -63,11 +64,26 @@ export default function AddTransaction() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
 
-    if (!form.category || !form.amount || !form.date) {
-      toast.error("⚠️ Isi semua kolom wajib!");
+    // 🔥 FIX: Prevent double submission
+    if (isSubmitting || loading) {
+      console.log("⚠️ Submission blocked: already submitting");
+      return;
+    }
+
+    setLoading(true);
+    setIsSubmitting(true);
+
+    // 🔥 FIX: Better validation
+    const validationErrors = [];
+    if (!form.category) validationErrors.push("kategori");
+    if (!form.amount || form.amount === "0") validationErrors.push("jumlah");
+    if (!form.date) validationErrors.push("tanggal");
+
+    if (validationErrors.length > 0) {
+      toast.error(`⚠️ Isi kolom wajib: ${validationErrors.join(", ")}`);
       setLoading(false);
+      setIsSubmitting(false);
       return;
     }
 
@@ -76,42 +92,86 @@ export default function AddTransaction() {
     if (cleanAmount === 0) {
       toast.error("⚠️ Jumlah transaksi tidak boleh nol!");
       setLoading(false);
+      setIsSubmitting(false);
       return;
     }
 
     try {
-      const { error } = await supabase.from("transactions").insert([
-        {
-          user_id: user.id,
-          ...form,
-          amount: cleanAmount,
-          created_at: new Date(),
-        },
-      ]);
+      console.log("📤 Submitting transaction...", {
+        user_id: user?.id,
+        ...form,
+        amount: cleanAmount
+      });
+
+      // 🔥 FIX: Check for duplicate transaction
+      const { data: existingTransaction } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("amount", cleanAmount)
+        .eq("description", form.description)
+        .eq("category", form.category)
+        .eq("date", form.date)
+        .single();
+
+      if (existingTransaction) {
+        toast.error("❌ Transaksi dengan detail yang sama sudah ada!");
+        setLoading(false);
+        setIsSubmitting(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("transactions")
+        .insert([
+          {
+            user_id: user.id,
+            date: form.date,
+            type: form.type,
+            category: form.category,
+            description: form.description,
+            amount: cleanAmount,
+            created_at: new Date().toISOString(),
+          },
+        ])
+        .select()
+        .single();
 
       if (error) {
-        console.error(error);
+        console.error("❌ Supabase error:", error);
         throw error;
       }
 
+      console.log("✅ Transaction created:", data);
       toast.success("✅ Transaksi berhasil ditambahkan!");
 
-      // Reset form dengan animasi
-      setTimeout(() => {
-        setForm({
-          date: today,
-          type: "expense",
-          category: "",
-          description: "",
-          amount: "",
-        });
-        setLoading(false);
-      }, 500);
+      // 🔥 FIX: Reset form immediately without setTimeout
+      resetForm();
 
     } catch (error) {
-      toast.error("❌ Gagal menambahkan transaksi!");
+      console.error("❌ Error adding transaction:", error);
+      toast.error(`❌ Gagal menambahkan transaksi: ${error.message}`);
+    } finally {
       setLoading(false);
+      setIsSubmitting(false);
     }
+  };
+
+  // 🔥 NEW: Separate reset function
+  const resetForm = () => {
+    setForm({
+      date: today,
+      type: "expense",
+      category: "",
+      description: "",
+      amount: "",
+    });
+  };
+
+  // 🔥 NEW: Quick reset handler
+  const handleReset = () => {
+    resetForm();
+    toast.success("🔄 Form berhasil direset!");
   };
 
   const filteredCategories = categories.filter((c) => c.type === form.type);
@@ -213,7 +273,7 @@ export default function AddTransaction() {
 
               <AnimatePresence mode="wait">
                 <motion.select
-                  key={form.type} // Trigger animation when type changes
+                  key={form.type}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -229,6 +289,7 @@ export default function AddTransaction() {
                     backgroundSize: '1.5em 1.5em',
                     paddingRight: '2.5rem'
                   }}
+                  required
                 >
                   <option value="">Pilih kategori...</option>
                   {filteredCategories.map((cat) => (
@@ -282,6 +343,7 @@ export default function AddTransaction() {
                   value={form.amount}
                   onChange={handleChange}
                   className="w-full border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-right text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  required
                 />
               </div>
               {form.amount && (
@@ -310,20 +372,20 @@ export default function AddTransaction() {
               </motion.div>
             )}
 
-            {/* Tombol Simpan */}
+            {/* 🔥 FIX: Better button state management */}
             <motion.button
-              whileHover={{ scale: loading ? 1 : 1.02 }}
-              whileTap={{ scale: loading ? 1 : 0.98 }}
+              whileHover={!loading && !isSubmitting ? { scale: 1.02 } : {}}
+              whileTap={!loading && !isSubmitting ? { scale: 0.98 } : {}}
               type="submit"
-              disabled={loading}
-              className={`w-full py-4 rounded-xl font-semibold text-white shadow-lg transition-all duration-200 ${loading
+              disabled={loading || isSubmitting}
+              className={`w-full py-4 rounded-xl font-semibold text-white shadow-lg transition-all duration-200 ${loading || isSubmitting
                   ? "bg-gray-400 cursor-not-allowed"
                   : form.type === "income"
                     ? "bg-green-600 hover:bg-green-700"
                     : "bg-blue-600 hover:bg-blue-700"
                 }`}
             >
-              {loading ? (
+              {loading || isSubmitting ? (
                 <div className="flex items-center justify-center">
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                   Menyimpan...
@@ -353,17 +415,9 @@ export default function AddTransaction() {
               📊 Dashboard
             </button>
             <button
-              onClick={() => {
-                setForm({
-                  date: today,
-                  type: "expense",
-                  category: "",
-                  description: "",
-                  amount: "",
-                });
-                toast.success("Form berhasil direset!");
-              }}
-              className="py-3 px-4 bg-orange-100 hover:bg-orange-200 rounded-xl text-orange-700 font-medium transition-colors duration-200 flex items-center justify-center gap-2"
+              onClick={handleReset}
+              disabled={loading || isSubmitting}
+              className="py-3 px-4 bg-orange-100 hover:bg-orange-200 disabled:bg-gray-100 disabled:text-gray-400 rounded-xl text-orange-700 font-medium transition-colors duration-200 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
             >
               🔄 Reset
             </button>

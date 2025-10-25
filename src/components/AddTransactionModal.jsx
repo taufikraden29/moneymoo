@@ -1,260 +1,268 @@
-import { Dialog, Transition } from "@headlessui/react";
-import { Fragment, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "../lib/supabaseClient";
 import toast from "react-hot-toast";
 
-export default function AddTransactionModal({ open, onClose, onAdd }) {
-  const [user, setUser] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [accounts, setAccounts] = useState([]);
-  const [accountId, setAccountId] = useState("");
-  const today = new Date().toISOString().split("T")[0];
-
+const AddTransactionModal = ({ open, onClose, onAdd, categories, accounts }) => {
   const [form, setForm] = useState({
-    date: today,
+    date: new Date().toISOString().split("T")[0],
     type: "expense",
     category: "",
     description: "",
     amount: "",
+    account_id: ""
   });
+  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🔹 Ambil user, kategori, dan akun saat modal dibuka
+  // Reset form when modal opens/closes
   useEffect(() => {
-    if (!open) return;
-    const loadData = async () => {
-      const { data } = await supabase.auth.getSession();
-      const currentUser = data.session?.user;
-      setUser(currentUser);
-
-      if (currentUser) {
-        const [{ data: cats }, { data: accs }] = await Promise.all([
-          supabase
-            .from("categories")
-            .select("*")
-            .eq("user_id", currentUser.id)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("accounts")
-            .select("*")
-            .eq("user_id", currentUser.id)
-            .order("created_at", { ascending: false }),
-        ]);
-
-        setCategories(cats || []);
-        setAccounts(accs || []);
-      }
-    };
-
-    loadData();
+    if (open) {
+      setForm({
+        date: new Date().toISOString().split("T")[0],
+        type: "expense",
+        category: "",
+        description: "",
+        amount: "",
+        account_id: ""
+      });
+    }
   }, [open]);
 
-  // 🔹 Format input
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     if (name === "amount") {
-      const numeric = value.replace(/\D/g, "");
-      const formatted = new Intl.NumberFormat("id-ID").format(numeric);
+      const numericValue = value.replace(/\D/g, "");
+      const formatted = new Intl.NumberFormat("id-ID").format(numericValue);
       setForm({ ...form, [name]: formatted });
     } else {
       setForm({ ...form, [name]: value });
     }
   };
 
-  // 🔹 Simpan transaksi
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.category || !form.amount || !form.date || !accountId)
-      return toast.error("⚠️ Isi semua kolom wajib!");
-
-    // ✅ Mainkan suara langsung di klik (interaksi user)
-    try {
-      const cashSound = new Audio("/sounds/cashin.mp3");
-      cashSound.volume = 0.6;
-      cashSound.play().catch(() => { }); // cegah error autoplay
-    } catch (err) {
-      console.warn("Gagal memutar suara:", err);
-    }
-
-    const cleanAmount = Number(form.amount.replace(/\D/g, ""));
-    const transactionPayload = {
-      user_id: user.id,
-      account_id: accountId,
-      ...form,
-      amount: cleanAmount,
-      created_at: new Date(),
-    };
-
-    const { error } = await supabase.from("transactions").insert([transactionPayload]);
-
-    if (error) {
-      toast.error("Gagal menambahkan transaksi!");
+    // 🔥 FIX: Prevent double submission
+    if (isSubmitting || loading) {
+      console.log("⚠️ Modal submission blocked: already submitting");
       return;
     }
 
-    toast.success("Transaksi berhasil ditambahkan!");
+    setLoading(true);
+    setIsSubmitting(true);
 
-    // 🔄 Reset form dan update list transaksi
-    onAdd?.(transactionPayload);
-    setForm({
-      date: today,
-      type: "expense",
-      category: "",
-      description: "",
-      amount: "",
-    });
-    setAccountId("");
-    // onClose();
+    // Validation
+    if (!form.category || !form.amount || !form.date) {
+      toast.error("⚠️ Isi semua kolom wajib!");
+      setLoading(false);
+      setIsSubmitting(false);
+      return;
+    }
+
+    const cleanAmount = Number(form.amount.replace(/\D/g, ""));
+
+    if (cleanAmount === 0) {
+      toast.error("⚠️ Jumlah transaksi tidak boleh nol!");
+      setLoading(false);
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const transactionData = {
+        date: form.date,
+        type: form.type,
+        category: form.category,
+        description: form.description,
+        amount: cleanAmount,
+        account_id: form.account_id || null
+      };
+
+      console.log("📤 Submitting from modal:", transactionData);
+
+      // 🔥 FIX: Call the parent handler
+      await onAdd(transactionData);
+
+      // Modal will close from parent component
+
+    } catch (error) {
+      console.error("❌ Error in modal submission:", error);
+      toast.error("❌ Gagal menambahkan transaksi!");
+    } finally {
+      setLoading(false);
+      setIsSubmitting(false);
+    }
   };
+
+  const filteredCategories = categories.filter((c) => c.type === form.type);
 
   if (!open) return null;
 
   return (
-    <Transition appear show={open} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
-        {/* Overlay */}
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          onClick={onClose}
         >
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" />
-        </Transition.Child>
-
-        {/* Modal */}
-        <div className="fixed inset-0 flex items-center justify-center p-4 sm:p-6">
-          <Transition.Child
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0 scale-95 translate-y-4"
-            enterTo="opacity-100 scale-100 translate-y-0"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100 scale-100 translate-y-0"
-            leaveTo="opacity-0 scale-95 translate-y-4"
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
           >
-            <Dialog.Panel className="w-full max-w-md sm:max-w-lg lg:max-w-xl bg-white rounded-2xl p-6 sm:p-8 shadow-2xl border border-gray-100 overflow-y-auto max-h-[90vh]">
-              <Dialog.Title className="text-center text-2xl sm:text-3xl font-bold text-gray-800 mb-6">
-                💰 Tambah Transaksi
-              </Dialog.Title>
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">
+                ➕ Tambah Transaksi
+              </h2>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Tanggal */}
-                <div className="flex flex-col">
-                  <label className="text-gray-700 font-medium mb-1">Tanggal</label>
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium">📅 Tanggal</label>
                   <input
                     type="date"
                     name="date"
                     value={form.date}
                     onChange={handleChange}
-                    max={today}
-                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400"
+                    max={new Date().toISOString().split('T')[0]}
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
                   />
                 </div>
 
-                {/* Akun */}
-                <div className="flex flex-col">
-                  <label className="text-gray-700 font-medium mb-1">Akun</label>
+                {/* Jenis Transaksi */}
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium">💰 Jenis</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, type: "income", category: "" })}
+                      className={`py-3 px-4 rounded-xl border-2 transition-all ${form.type === "income"
+                        ? "border-green-500 bg-green-50 text-green-700"
+                        : "border-gray-200 text-gray-600"
+                        }`}
+                    >
+                      💵 Pemasukan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, type: "expense", category: "" })}
+                      className={`py-3 px-4 rounded-xl border-2 transition-all ${form.type === "expense"
+                        ? "border-red-500 bg-red-50 text-red-700"
+                        : "border-gray-200 text-gray-600"
+                        }`}
+                    >
+                      🛍️ Pengeluaran
+                    </button>
+                  </div>
+                </div>
+
+                {/* Kategori */}
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium">📂 Kategori</label>
                   <select
-                    value={accountId}
-                    onChange={(e) => setAccountId(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400"
+                    name="category"
+                    value={form.category}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
                   >
-                    <option value="">Pilih Akun</option>
-                    {accounts.map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.name}{" "}
-                        {acc.type === "bank" && acc.bank_number ? `(${acc.bank_number})` : ""}
+                    <option value="">Pilih kategori...</option>
+                    {filteredCategories.map((cat) => (
+                      <option key={cat.id} value={cat.name}>
+                        {cat.name}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Jenis + Kategori */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-gray-700 font-medium mb-1">Jenis</label>
-                    <select
-                      name="type"
-                      value={form.type}
-                      onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400"
-                    >
-                      <option value="expense">Pengeluaran</option>
-                      <option value="income">Pemasukan</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-gray-700 font-medium mb-1">Kategori</label>
-                    <select
-                      name="category"
-                      value={form.category}
-                      onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400"
-                    >
-                      <option value="">Pilih kategori</option>
-                      {categories
-                        .filter((c) => c.type === form.type)
-                        .map((cat) => (
-                          <option key={cat.id} value={cat.name}>
-                            {cat.name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
+                {/* Akun */}
+                <div>
+                  <label className="block text-gray-700 mb-2 font-medium">💳 Akun</label>
+                  <select
+                    name="account_id"
+                    value={form.account_id}
+                    onChange={handleChange}
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Pilih akun (opsional)</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name} - Rp {account.balance?.toLocaleString('id-ID')}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Deskripsi */}
                 <div>
-                  <label className="block text-gray-700 font-medium mb-1">Deskripsi</label>
+                  <label className="block text-gray-700 mb-2 font-medium">📝 Deskripsi</label>
                   <input
                     type="text"
                     name="description"
-                    placeholder="Contoh: makan siang / gaji bulan ini"
+                    placeholder="Deskripsi transaksi"
                     value={form.description}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 {/* Jumlah */}
                 <div>
-                  <label className="block text-gray-700 font-medium mb-1">Jumlah (Rp)</label>
-                  <input
-                    type="text"
-                    name="amount"
-                    placeholder="0"
-                    value={form.amount}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-right focus:ring-2 focus:ring-blue-400"
-                  />
+                  <label className="block text-gray-700 mb-2 font-medium">💸 Jumlah (Rp)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500">Rp</span>
+                    <input
+                      type="text"
+                      name="amount"
+                      placeholder="0"
+                      value={form.amount}
+                      onChange={handleChange}
+                      className="w-full border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-right text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
                 </div>
 
-                {/* Tombol Simpan */}
-                <button
-                  type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg shadow-md transition text-lg"
-                >
-                  Simpan Transaksi
-                </button>
+                {/* Actions */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={loading}
+                    className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Menyimpan...
+                      </div>
+                    ) : (
+                      "💾 Simpan"
+                    )}
+                  </button>
+                </div>
               </form>
-
-              <div className="flex justify-center sm:justify-end mt-6">
-                <button
-                  onClick={onClose}
-                  className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition text-sm sm:text-base"
-                >
-                  Tutup
-                </button>
-              </div>
-            </Dialog.Panel>
-          </Transition.Child>
-        </div>
-      </Dialog>
-    </Transition>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
-}
+};
+
+export default AddTransactionModal;

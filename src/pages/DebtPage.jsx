@@ -1,173 +1,134 @@
-import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
-import toast from "react-hot-toast";
-import { getDebts, addDebt, deleteDebt } from "../services/debtService";
-import { motion } from "framer-motion";
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useDebts } from '../hooks/useDebts';
+import DebtSummary from '../components/debt/DebtSummary';
+import DebtCard from '../components/debt/DebtCard';
+import DebtForm from '../components/debt/DebtForm';
 
-export default function DebtsPage() {
-  const [user, setUser] = useState(null);
-  const [debts, setDebts] = useState([]);
-  const [form, setForm] = useState({
-    provider: "",
-    monthly_payment: "",
-    months: "",
+const DebtPage = () => {
+  const { debts, stats, loading, addDebt, deleteDebt, addPayment } = useDebts();
+  const [showForm, setShowForm] = useState(false);
+  const [filter, setFilter] = useState('all'); // all, debt, receivable
+
+  const filteredDebts = debts.filter(debt => {
+    if (filter === 'all') return true;
+    return debt.type === filter;
   });
 
-  // Hitung total otomatis
-  const totalAmount =
-    Number(form.monthly_payment || 0) * Number(form.months || 0);
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data?.user);
-    };
-    fetchUser();
-  }, []);
-
-  useEffect(() => {
-    if (user) loadDebts();
-  }, [user]);
-
-  const loadDebts = async () => {
-    try {
-      const data = await getDebts(user.id);
-      setDebts(data);
-    } catch (err) {
-      toast.error("Gagal memuat data hutang");
-    }
+  const handleAddDebt = async (debtData) => {
+    await addDebt(debtData);
+    setShowForm(false);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!form.provider || !form.monthly_payment || !form.months) {
-      toast.error("Lengkapi semua kolom!");
-      return;
-    }
-
-    try {
-      const payload = {
-        user_id: user.id,
-        provider: form.provider,
-        months: Number(form.months),
-        monthly_payment: Number(form.monthly_payment),
-        remaining_balance: totalAmount,
-        status: "belum lunas",
-        created_at: new Date(),
-      };
-
-      await addDebt(payload);
-      toast.success("Hutang berhasil ditambahkan!");
-
-      setForm({
-        provider: "",
-        monthly_payment: "",
-        months: "",
-      });
-
-      loadDebts();
-    } catch (err) {
-      console.error("Error adding debt:", err);
-      toast.error("Gagal menambah hutang");
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (confirm("Yakin ingin menghapus hutang ini?")) {
+  const handleDeleteDebt = async (id) => {
+    if (window.confirm('Yakin ingin menghapus utang ini?')) {
       await deleteDebt(id);
-      toast.success("Hutang dihapus");
-      loadDebts();
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <motion.div
-      className="min-h-screen bg-gray-50 p-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-    >
-      <h1 className="text-2xl font-semibold text-gray-800 mb-6">
-        💸 Daftar Hutang
-      </h1>
-
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-4 rounded-xl shadow mb-6"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <input
-            type="text"
-            placeholder="Nama Penyedia"
-            value={form.provider}
-            onChange={(e) => setForm({ ...form, provider: e.target.value })}
-            className="border rounded-lg px-3 py-2"
-          />
-
-          <input
-            type="number"
-            placeholder="Nominal per Bulan"
-            value={form.monthly_payment}
-            onChange={(e) =>
-              setForm({ ...form, monthly_payment: e.target.value })
-            }
-            className="border rounded-lg px-3 py-2"
-          />
-
-          <input
-            type="number"
-            placeholder="Durasi (bulan)"
-            value={form.months}
-            onChange={(e) => setForm({ ...form, months: e.target.value })}
-            className="border rounded-lg px-3 py-2"
-          />
-
-          <div className="flex items-center border rounded-lg px-3 py-2 bg-gray-50 text-gray-700 font-medium">
-            Total: Rp {totalAmount.toLocaleString("id-ID")}
+    <div className="min-h-screen bg-gray-50 py-6">
+      <div className="max-w-4xl mx-auto px-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+              💰 Management Utang & Piutang
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Kelola hutang dan piutang dengan mudah
+            </p>
           </div>
+          <button
+            onClick={() => setShowForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-colors"
+          >
+            ➕ Tambah Baru
+          </button>
         </div>
 
-        <button
-          type="submit"
-          className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-        >
-          Simpan Hutang
-        </button>
-      </form>
+        {/* Summary */}
+        <DebtSummary stats={stats} />
 
-      <div className="grid gap-4">
-        {debts.length === 0 ? (
-          <p className="text-gray-500 text-sm">Belum ada hutang</p>
-        ) : (
-          debts.map((d, i) => (
-            <motion.div
-              key={d.id || i}
-              className="bg-white p-4 rounded-xl shadow flex justify-between items-center"
-              whileHover={{ scale: 1.02 }}
+        {/* Filters */}
+        <div className="flex gap-2 mb-6">
+          {[
+            { key: 'all', label: 'Semua', emoji: '📊' },
+            { key: 'debt', label: 'Hutang', emoji: '🔴' },
+            { key: 'receivable', label: 'Piutang', emoji: '🟢' }
+          ].map(({ key, label, emoji }) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${filter === key
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                }`}
             >
-              <div>
-                <h2 className="font-semibold text-gray-700">{d.provider}</h2>
-                <p className="text-sm text-gray-500">
-                  Angsuran: Rp{" "}
-                  {Number(d.monthly_payment).toLocaleString("id-ID")} ×{" "}
-                  {d.months} bulan
+              {emoji} {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Debt List */}
+        <div className="space-y-4">
+          <AnimatePresence>
+            {filteredDebts.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-200"
+              >
+                <div className="text-6xl mb-4">📝</div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                  Belum ada {filter === 'all' ? 'utang/piutang' : filter === 'debt' ? 'hutang' : 'piutang'}
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  {filter === 'all'
+                    ? 'Mulai catat hutang atau piutang pertama Anda'
+                    : `Belum ada ${filter === 'debt' ? 'hutang' : 'piutang'} yang tercatat`}
                 </p>
-                <p className="text-xs text-gray-400">
-                  Sisa: Rp {Number(d.remaining_balance).toLocaleString("id-ID")}
-                </p>
-              </div>
-              <div className="flex gap-2">
                 <button
-                  onClick={() => handleDelete(d.id)}
-                  className="bg-red-100 text-red-600 px-3 py-1 rounded-md hover:bg-red-200"
+                  onClick={() => setShowForm(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
                 >
-                  Hapus
+                  Tambah {filter === 'all' ? 'Utang/Piutang' : filter === 'debt' ? 'Hutang' : 'Piutang'}
                 </button>
-              </div>
-            </motion.div>
-          ))
-        )}
+              </motion.div>
+            ) : (
+              filteredDebts.map((debt) => (
+                <DebtCard
+                  key={debt.id}
+                  debt={debt}
+                  onUpdate={() => { }} // Implement if needed
+                  onDelete={handleDeleteDebt}
+                  onPayment={addPayment}
+                />
+              ))
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Add/Edit Form Modal */}
+        <AnimatePresence>
+          {showForm && (
+            <DebtForm
+              onSubmit={handleAddDebt}
+              onCancel={() => setShowForm(false)}
+            />
+          )}
+        </AnimatePresence>
       </div>
-    </motion.div>
+    </div>
   );
-}
+};
+
+export default DebtPage;

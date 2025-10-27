@@ -121,11 +121,21 @@ export default function Dashboard() {
 
     let query = supabase
       .from("transactions")
-      .select("*", { count: "exact" })
+      .select(
+        `
+      *,
+      accounts:account_id (
+        id,
+        name,
+        type
+      )
+    `,
+        { count: "exact" }
+      ) // ✅ ADD JOIN dengan accounts
       .eq("user_id", user.id)
       .order("date", { ascending: false });
 
-    // Apply filters
+    // Apply filters tetap sama...
     if (from) query = query.gte("date", from);
     if (to) query = query.lte("date", to);
     if (filterType) query = query.eq("type", filterType);
@@ -143,7 +153,15 @@ export default function Dashboard() {
     } else {
       setTransactions(data || []);
       setTotalPages(Math.ceil(count / limitParam));
-      console.log("✅ Transactions loaded:", data?.length);
+      console.log("✅ Transactions with accounts loaded:", data?.length);
+      // Debug: lihat struktur data
+      if (data && data.length > 0) {
+        console.log("📊 Sample transaction with account:", {
+          id: data[0].id,
+          account_id: data[0].account_id,
+          account_data: data[0].accounts,
+        });
+      }
     }
     setLoading(false);
   };
@@ -173,7 +191,7 @@ export default function Dashboard() {
   // 🔥 NEW: Refresh function untuk manual update
   const refreshData = () => {
     console.log("🔄 Manual refresh triggered");
-    setRefreshKey(prev => prev + 1);
+    setRefreshKey((prev) => prev + 1);
   };
 
   const handleAddTransaction = async (transactionData) => {
@@ -229,9 +247,8 @@ export default function Dashboard() {
       // 🔥 FIX: Refresh semua data setelah transaksi berhasil
       await Promise.all([
         loadTransactions(),
-        loadAccounts() // Refresh accounts karena saldo mungkin berubah
+        loadAccounts(), // Refresh accounts karena saldo mungkin berubah
       ]);
-
     } catch (error) {
       console.error("❌ Error in handleAddTransaction:", error);
       toast.error(`❌ Gagal menambahkan transaksi: ${error.message}`);
@@ -244,7 +261,9 @@ export default function Dashboard() {
     toast(
       (t) => (
         <div className="flex flex-col items-start gap-3 p-2">
-          <span className="text-gray-800 font-medium">Yakin ingin menghapus transaksi ini?</span>
+          <span className="text-gray-800 font-medium">
+            Yakin ingin menghapus transaksi ini?
+          </span>
           <div className="flex gap-2 w-full">
             <button
               onClick={async () => {
@@ -280,7 +299,7 @@ export default function Dashboard() {
       ),
       {
         position: "top-center",
-        duration: 5000
+        duration: 5000,
       }
     );
   };
@@ -335,47 +354,85 @@ export default function Dashboard() {
     .reduce((sum, t) => sum + t.amount, 0);
 
   // Mobile navigation component
+  // Mobile navigation component
   const MobileNav = () => (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden">
       <div className="flex justify-around items-center p-2">
         <button
           onClick={() => setActiveSection("overview")}
-          className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeSection === "overview" ? "bg-blue-50 text-blue-600" : "text-gray-600"
-            }`}
+          className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
+            activeSection === "overview"
+              ? "bg-blue-50 text-blue-600"
+              : "text-gray-600"
+          }`}
         >
           <span className="text-lg">📊</span>
-          <span className="text-xs mt-1">Overview</span>
+          <span className="text-xs mt-1 truncate w-full text-center">
+            Overview
+          </span>
         </button>
+
         <button
           onClick={() => setActiveSection("accounts")}
-          className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeSection === "accounts" ? "bg-blue-50 text-blue-600" : "text-gray-600"
-            }`}
+          className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
+            activeSection === "accounts"
+              ? "bg-blue-50 text-blue-600"
+              : "text-gray-600"
+          }`}
         >
           <span className="text-lg">💳</span>
-          <span className="text-xs mt-1">Akun</span>
+          <span className="text-xs mt-1 truncate w-full text-center">Akun</span>
         </button>
+
+        {/* 🔥 NEW: Hutang Button */}
+        <button
+          onClick={() => navigate("/utang")}
+          className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
+            activeSection === "utang"
+              ? "bg-purple-50 text-purple-600"
+              : "text-gray-600"
+          }`}
+        >
+          <span className="text-lg">💸</span>
+          <span className="text-xs mt-1 truncate w-full text-center">
+            Hutang
+          </span>
+        </button>
+
         <button
           onClick={() => setAddModalOpen(true)}
-          className="flex flex-col items-center p-2 rounded-lg bg-blue-600 text-white"
+          className="flex flex-col items-center p-2 rounded-lg bg-blue-600 text-white min-w-0 flex-1 mx-1"
         >
           <span className="text-lg">➕</span>
-          <span className="text-xs mt-1">Tambah</span>
+          <span className="text-xs mt-1 truncate w-full text-center">
+            Tambah
+          </span>
         </button>
+
         <button
           onClick={() => setActiveSection("transactions")}
-          className={`flex flex-col items-center p-2 rounded-lg transition-colors ${activeSection === "transactions" ? "bg-blue-50 text-blue-600" : "text-gray-600"
-            }`}
+          className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
+            activeSection === "transactions"
+              ? "bg-blue-50 text-blue-600"
+              : "text-gray-600"
+          }`}
         >
           <span className="text-lg">📋</span>
-          <span className="text-xs mt-1">Transaksi</span>
+          <span className="text-xs mt-1 truncate w-full text-center">
+            Transaksi
+          </span>
         </button>
+
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className={`flex flex-col items-center p-2 rounded-lg transition-colors ${showFilters ? "bg-blue-50 text-blue-600" : "text-gray-600"
-            }`}
+          className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
+            showFilters ? "bg-blue-50 text-blue-600" : "text-gray-600"
+          }`}
         >
           <span className="text-lg">🔍</span>
-          <span className="text-xs mt-1">Filter</span>
+          <span className="text-xs mt-1 truncate w-full text-center">
+            Filter
+          </span>
         </button>
       </div>
     </div>
@@ -410,7 +467,10 @@ export default function Dashboard() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight truncate">
-                👋 Halo, <span className="text-blue-600">{user?.email?.split('@')[0]}</span>
+                👋 Halo,{" "}
+                <span className="text-blue-600">
+                  {user?.email?.split("@")[0]}
+                </span>
               </h1>
               <p className="text-gray-500 text-sm sm:text-base">
                 Selamat datang di dashboard keuanganmu
@@ -498,23 +558,27 @@ export default function Dashboard() {
                 {/* Chart */}
                 <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
-                    <h2 className="font-semibold text-gray-700 text-lg">Grafik Transaksi</h2>
+                    <h2 className="font-semibold text-gray-700 text-lg">
+                      Grafik Transaksi
+                    </h2>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setChartType("expense")}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${chartType === "expense"
-                          ? "bg-blue-600 text-white shadow-sm"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                          }`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          chartType === "expense"
+                            ? "bg-blue-600 text-white shadow-sm"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
                       >
                         Pengeluaran
                       </button>
                       <button
                         onClick={() => setChartType("income")}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${chartType === "income"
-                          ? "bg-blue-600 text-white shadow-sm"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                          }`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          chartType === "income"
+                            ? "bg-blue-600 text-white shadow-sm"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
                       >
                         Pemasukan
                       </button>
@@ -538,8 +602,12 @@ export default function Dashboard() {
                 {accounts.length === 0 ? (
                   <div className="col-span-full text-center py-8 bg-white rounded-xl shadow-sm border border-gray-200">
                     <div className="text-6xl text-gray-300 mb-4">💳</div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Belum Ada Akun</h3>
-                    <p className="text-gray-600 mb-4">Tambahkan akun pertama Anda untuk mulai mencatat transaksi</p>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                      Belum Ada Akun
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      Tambahkan akun pertama Anda untuk mulai mencatat transaksi
+                    </p>
                     <button
                       onClick={() => setShowAccountModal(true)}
                       className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
@@ -595,7 +663,9 @@ export default function Dashboard() {
                   </h2>
 
                   <div className="flex items-center gap-3">
-                    <label className="text-sm text-gray-600 hidden sm:block">Tampilkan:</label>
+                    <label className="text-sm text-gray-600 hidden sm:block">
+                      Tampilkan:
+                    </label>
                     <select
                       value={limit}
                       onChange={(e) => {
@@ -610,7 +680,9 @@ export default function Dashboard() {
                         </option>
                       ))}
                     </select>
-                    <span className="text-sm text-gray-600 hidden md:block">/ halaman</span>
+                    <span className="text-sm text-gray-600 hidden md:block">
+                      / halaman
+                    </span>
                   </div>
                 </div>
 
@@ -708,8 +780,8 @@ export default function Dashboard() {
                           diffDays === 0
                             ? "📅 Hari Ini"
                             : diffDays === 1
-                              ? "📆 Kemarin"
-                              : trxDate.toLocaleDateString("id-ID", {
+                            ? "📆 Kemarin"
+                            : trxDate.toLocaleDateString("id-ID", {
                                 weekday: "long",
                                 day: "2-digit",
                                 month: "short",
@@ -723,12 +795,23 @@ export default function Dashboard() {
                             </h3>
                             <div className="space-y-2">
                               {trxs.map((trx) => {
-                                const date = new Date(trx.created_at || trx.date);
-                                const tanggal = date.toLocaleDateString("id-ID", {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
+                                const date = new Date(
+                                  trx.created_at || trx.date
+                                );
+                                console.log("Transaction account data:", {
+                                  id: trx.id,
+                                  account_id: trx.account_id,
+                                  account_name: trx.accounts?.name,
+                                  full_account_data: trx.accounts,
                                 });
+                                const tanggal = date.toLocaleDateString(
+                                  "id-ID",
+                                  {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  }
+                                );
                                 const waktu = date.toLocaleTimeString("id-ID", {
                                   hour: "2-digit",
                                   minute: "2-digit",
@@ -748,7 +831,7 @@ export default function Dashboard() {
                                           {trx.category}
                                         </div>
                                         <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full border">
-                                          {trx.account_name || "Tanpa Akun"}
+                                          {trx.accounts?.name || "Tanpa Akun"}
                                         </div>
                                       </div>
                                       <div className="text-xs text-gray-500 truncate">
@@ -760,13 +843,16 @@ export default function Dashboard() {
                                     </div>
                                     <div className="flex items-center gap-2 ml-3">
                                       <div
-                                        className={`font-semibold text-sm whitespace-nowrap ${trx.type === "income"
-                                          ? "text-green-600"
-                                          : "text-red-500"
-                                          }`}
+                                        className={`font-semibold text-sm whitespace-nowrap ${
+                                          trx.type === "income"
+                                            ? "text-green-600"
+                                            : "text-red-500"
+                                        }`}
                                       >
                                         {trx.type === "income" ? "+" : "-"} Rp{" "}
-                                        {Number(trx.amount).toLocaleString("id-ID")}
+                                        {Number(trx.amount).toLocaleString(
+                                          "id-ID"
+                                        )}
                                       </div>
                                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button
@@ -809,7 +895,9 @@ export default function Dashboard() {
                       Halaman {page} dari {totalPages}
                     </span>
                     <button
-                      onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                      onClick={() =>
+                        setPage((p) => Math.min(p + 1, totalPages))
+                      }
                       disabled={page === totalPages}
                       className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >

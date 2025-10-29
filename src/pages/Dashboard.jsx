@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import {
@@ -58,9 +58,28 @@ export default function Dashboard() {
   // Mobile states
   const [showFilters, setShowFilters] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1200
+  );
 
   // 🔥 NEW: Refresh state untuk force update
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // 🔥 NEW: Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+      // Auto-show sections on larger screens
+      if (window.innerWidth >= 768) {
+        setActiveSection("overview");
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const isMobile = windowWidth < 768;
 
   useEffect(() => {
     const checkUser = async () => {
@@ -75,33 +94,9 @@ export default function Dashboard() {
     checkUser();
   }, [navigate]);
 
-  useEffect(() => {
-    if (user) {
-      loadCategories();
-      loadAccounts();
-      loadTransactions();
-    }
-  }, [user, refreshKey]); // 🔥 ADD refreshKey dependency
-
-  useEffect(() => {
-    if (transactions.length > 0) {
-      const filtered = transactions.filter((trx) => trx.type === chartType);
-      const totals = filtered.reduce((acc, trx) => {
-        const cat = trx.category || "Tanpa Kategori";
-        acc[cat] = (acc[cat] || 0) + Number(trx.amount);
-        return acc;
-      }, {});
-      const formatted = Object.entries(totals).map(([name, value]) => ({
-        name,
-        value,
-      }));
-      setChartData(formatted);
-    } else {
-      setChartData([]);
-    }
-  }, [transactions, chartType]);
-
-  const loadCategories = async () => {
+  // 🔥 OPTIMIZED: Load data dengan useCallback
+  const loadCategories = useCallback(async () => {
+    if (!user) return;
     console.log("🔄 Loading categories...");
     const { data, error } = await supabase
       .from("categories")
@@ -110,69 +105,12 @@ export default function Dashboard() {
       .order("created_at", { ascending: false });
     if (!error) {
       setCategories(data || []);
-      console.log("✅ Categories loaded:", data?.length);
     } else {
       console.error("❌ Error loading categories:", error);
     }
-  };
+  }, [user]);
 
-  const loadTransactions = async (pageParam = 1, limitParam = 10) => {
-    setLoading(true);
-
-    let query = supabase
-      .from("transactions")
-      .select(
-        `
-      *,
-      accounts:account_id (
-        id,
-        name,
-        type
-      )
-    `,
-        { count: "exact" }
-      ) // ✅ ADD JOIN dengan accounts
-      .eq("user_id", user.id)
-      .order("date", { ascending: false });
-
-    // Apply filters tetap sama...
-    if (from) query = query.gte("date", from);
-    if (to) query = query.lte("date", to);
-    if (filterType) query = query.eq("type", filterType);
-    if (filterCategory) query = query.eq("category", filterCategory);
-    if (q) query = query.ilike("description", `%${q}%`);
-
-    const start = (pageParam - 1) * limitParam;
-    const end = start + limitParam - 1;
-
-    const { data, count, error } = await query.range(start, end);
-
-    if (error) {
-      console.error("Error loading transactions:", error);
-      toast.error("Gagal memuat transaksi");
-    } else {
-      setTransactions(data || []);
-      setTotalPages(Math.ceil(count / limitParam));
-      console.log("✅ Transactions with accounts loaded:", data?.length);
-      // Debug: lihat struktur data
-      if (data && data.length > 0) {
-        console.log("📊 Sample transaction with account:", {
-          id: data[0].id,
-          account_id: data[0].account_id,
-          account_data: data[0].accounts,
-        });
-      }
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    if (user) {
-      loadTransactions(page, limit);
-    }
-  }, [user, page, limit, filterType, filterCategory, from, to, q, refreshKey]); // 🔥 ADD refreshKey
-
-  const loadAccounts = async () => {
+  const loadAccounts = useCallback(async () => {
     if (!user) return;
     console.log("🔄 Loading accounts...");
     const { data, error } = await supabase
@@ -184,21 +122,103 @@ export default function Dashboard() {
       console.error("❌ Error loading accounts:", error);
     } else {
       setAccounts(data || []);
-      console.log("✅ Accounts loaded:", data?.length);
     }
-  };
+  }, [user]);
+
+  const loadTransactions = useCallback(
+    async (pageParam = 1, limitParam = 10) => {
+      if (!user) return;
+
+      setLoading(true);
+
+      let query = supabase
+        .from("transactions")
+        .select(
+          `
+      *,
+      accounts:account_id (
+        id,
+        name,
+        type
+      )
+    `,
+          { count: "exact" }
+        )
+        .eq("user_id", user.id)
+        .order("date", { ascending: false });
+
+      // Apply filters
+      if (from) query = query.gte("date", from);
+      if (to) query = query.lte("date", to);
+      if (filterType) query = query.eq("type", filterType);
+      if (filterCategory) query = query.eq("category", filterCategory);
+      if (q) query = query.ilike("description", `%${q}%`);
+
+      const start = (pageParam - 1) * limitParam;
+      const end = start + limitParam - 1;
+
+      const { data, count, error } = await query.range(start, end);
+
+      if (error) {
+        console.error("Error loading transactions:", error);
+        toast.error("Gagal memuat transaksi");
+      } else {
+        setTransactions(data || []);
+        setTotalPages(Math.ceil(count / limitParam) || 1);
+      }
+      setLoading(false);
+    },
+    [user, from, to, filterType, filterCategory, q]
+  );
+
+  // 🔥 OPTIMIZED: Load all data when user changes
+  useEffect(() => {
+    if (user) {
+      Promise.all([
+        loadCategories(),
+        loadAccounts(),
+        loadTransactions(page, limit),
+      ]);
+    }
+  }, [
+    user,
+    loadCategories,
+    loadAccounts,
+    loadTransactions,
+    page,
+    limit,
+    refreshKey,
+  ]);
+
+  // 🔥 OPTIMIZED: Chart data calculation with useMemo
+  const memoizedChartData = useMemo(() => {
+    if (transactions.length > 0) {
+      const filtered = transactions.filter((trx) => trx.type === chartType);
+      const totals = filtered.reduce((acc, trx) => {
+        const cat = trx.category || "Tanpa Kategori";
+        acc[cat] = (acc[cat] || 0) + Number(trx.amount);
+        return acc;
+      }, {});
+      return Object.entries(totals).map(([name, value]) => ({
+        name,
+        value,
+      }));
+    }
+    return [];
+  }, [transactions, chartType]);
+
+  useEffect(() => {
+    setChartData(memoizedChartData);
+  }, [memoizedChartData]);
 
   // 🔥 NEW: Refresh function untuk manual update
-  const refreshData = () => {
+  const refreshData = useCallback(() => {
     console.log("🔄 Manual refresh triggered");
     setRefreshKey((prev) => prev + 1);
-  };
+  }, []);
 
   const handleAddTransaction = async (transactionData) => {
     try {
-      console.log("📤 Adding transaction from dashboard...", transactionData);
-
-      // 🔥 FIX: Prevent duplicate submission
       if (loading) {
         console.log("⚠️ Transaction submission blocked: already loading");
         return;
@@ -235,20 +255,13 @@ export default function Dashboard() {
         .select()
         .single();
 
-      if (error) {
-        console.error("❌ Error adding transaction:", error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log("✅ Transaction added successfully:", data);
       toast.success("✅ Transaksi berhasil ditambahkan!");
       setAddModalOpen(false);
 
       // 🔥 FIX: Refresh semua data setelah transaksi berhasil
-      await Promise.all([
-        loadTransactions(),
-        loadAccounts(), // Refresh accounts karena saldo mungkin berubah
-      ]);
+      await Promise.all([loadTransactions(), loadAccounts()]);
     } catch (error) {
       console.error("❌ Error in handleAddTransaction:", error);
       toast.error(`❌ Gagal menambahkan transaksi: ${error.message}`);
@@ -278,7 +291,6 @@ export default function Dashboard() {
                     },
                     { position: "top-center" }
                   );
-                  // 🔥 FIX: Refresh data setelah hapus
                   await loadTransactions();
                 } catch (err) {
                   console.error("Error saat hapus:", err);
@@ -321,122 +333,135 @@ export default function Dashboard() {
       { position: "top-center" }
     );
     await promise;
-    // 🔥 FIX: Refresh data setelah edit
     await loadTransactions();
   };
 
   // 🔥 NEW: Handler untuk success dari modal
-  const handleAccountSuccess = () => {
+  const handleAccountSuccess = useCallback(() => {
     console.log("✅ Account added/updated, refreshing data...");
     refreshData();
-  };
+  }, [refreshData]);
 
-  const handleCategorySuccess = () => {
+  const handleCategorySuccess = useCallback(() => {
     console.log("✅ Category added/updated, refreshing data...");
     refreshData();
-  };
+  }, [refreshData]);
 
-  const totalIncome = transactions
-    .filter((t) => t.type === "income")
-    .reduce((acc, t) => acc + Number(t.amount), 0);
-  const totalExpense = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((acc, t) => acc + Number(t.amount), 0);
-  const balance = totalIncome - totalExpense;
+  // 🔥 OPTIMIZED: Financial calculations with useMemo
+  const financialData = useMemo(() => {
+    const totalIncome = transactions
+      .filter((t) => t.type === "income")
+      .reduce((acc, t) => acc + Number(t.amount), 0);
+    const totalExpense = transactions
+      .filter((t) => t.type === "expense")
+      .reduce((acc, t) => acc + Number(t.amount), 0);
+    const balance = totalIncome - totalExpense;
 
-  const today = new Date().toISOString().split("T")[0];
-  const todayTransactions = transactions.filter((t) => t.date === today);
-  const todayIncome = todayTransactions
-    .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
-  const todayExpense = todayTransactions
-    .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0);
+    const today = new Date().toISOString().split("T")[0];
+    const todayTransactions = transactions.filter((t) => t.date === today);
+    const todayIncome = todayTransactions
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + t.amount, 0);
+    const todayExpense = todayTransactions
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + t.amount, 0);
 
-  // Mobile navigation component
-  // Mobile navigation component
+    return {
+      totalIncome,
+      totalExpense,
+      balance,
+      todayIncome,
+      todayExpense,
+    };
+  }, [transactions]);
+
+  // 🔥 NEW: Grouped transactions by date with useMemo
+  const groupedTransactions = useMemo(() => {
+    return Object.entries(
+      transactions.reduce((acc, trx) => {
+        const dateObj = new Date(trx.date || trx.created_at);
+        const dateStr = dateObj.toISOString().split("T")[0];
+        if (!acc[dateStr]) acc[dateStr] = [];
+        acc[dateStr].push(trx);
+        return acc;
+      }, {})
+    ).sort((a, b) => new Date(b[0]) - new Date(a[0]));
+  }, [transactions]);
+
+  // 🔥 NEW: Mobile navigation component dengan improved responsive behavior
   const MobileNav = () => (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden safe-area-inset-bottom">
       <div className="flex justify-around items-center p-2">
-        <button
-          onClick={() => setActiveSection("overview")}
-          className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
-            activeSection === "overview"
-              ? "bg-blue-50 text-blue-600"
-              : "text-gray-600"
-          }`}
-        >
-          <span className="text-lg">📊</span>
-          <span className="text-xs mt-1 truncate w-full text-center">
-            Overview
-          </span>
-        </button>
+        {[
+          { id: "overview", icon: "📊", label: "Overview" },
+          { id: "accounts", icon: "💳", label: "Akun" },
+          {
+            id: "utang",
+            icon: "💸",
+            label: "Hutang",
+            action: () => navigate("/utang"),
+          },
+          {
+            id: "add",
+            icon: "➕",
+            label: "Tambah",
+            action: () => setAddModalOpen(true),
+            primary: true,
+          },
+          { id: "transactions", icon: "📋", label: "Transaksi" },
+          {
+            id: "filters",
+            icon: "🔍",
+            label: "Filter",
+            action: () => setShowFilters(!showFilters),
+          },
+        ].map((item) => {
+          if (item.action) {
+            return (
+              <button
+                key={item.id}
+                onClick={item.action}
+                className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 mx-1 ${
+                  item.primary
+                    ? "bg-blue-600 text-white"
+                    : activeSection === item.id
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-gray-600"
+                }`}
+              >
+                <span className="text-lg">{item.icon}</span>
+                <span className="text-xs mt-1 truncate w-full text-center">
+                  {item.label}
+                </span>
+              </button>
+            );
+          }
 
-        <button
-          onClick={() => setActiveSection("accounts")}
-          className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
-            activeSection === "accounts"
-              ? "bg-blue-50 text-blue-600"
-              : "text-gray-600"
-          }`}
-        >
-          <span className="text-lg">💳</span>
-          <span className="text-xs mt-1 truncate w-full text-center">Akun</span>
-        </button>
-
-        {/* 🔥 NEW: Hutang Button */}
-        <button
-          onClick={() => navigate("/utang")}
-          className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
-            activeSection === "utang"
-              ? "bg-purple-50 text-purple-600"
-              : "text-gray-600"
-          }`}
-        >
-          <span className="text-lg">💸</span>
-          <span className="text-xs mt-1 truncate w-full text-center">
-            Hutang
-          </span>
-        </button>
-
-        <button
-          onClick={() => setAddModalOpen(true)}
-          className="flex flex-col items-center p-2 rounded-lg bg-blue-600 text-white min-w-0 flex-1 mx-1"
-        >
-          <span className="text-lg">➕</span>
-          <span className="text-xs mt-1 truncate w-full text-center">
-            Tambah
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveSection("transactions")}
-          className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
-            activeSection === "transactions"
-              ? "bg-blue-50 text-blue-600"
-              : "text-gray-600"
-          }`}
-        >
-          <span className="text-lg">📋</span>
-          <span className="text-xs mt-1 truncate w-full text-center">
-            Transaksi
-          </span>
-        </button>
-
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
-            showFilters ? "bg-blue-50 text-blue-600" : "text-gray-600"
-          }`}
-        >
-          <span className="text-lg">🔍</span>
-          <span className="text-xs mt-1 truncate w-full text-center">
-            Filter
-          </span>
-        </button>
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveSection(item.id)}
+              className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
+                activeSection === item.id
+                  ? "bg-blue-50 text-blue-600"
+                  : "text-gray-600"
+              }`}
+            >
+              <span className="text-lg">{item.icon}</span>
+              <span className="text-xs mt-1 truncate w-full text-center">
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
+
+  // 🔥 NEW: Render condition untuk sections
+  const shouldShowSection = (section) => {
+    return !isMobile || activeSection === section;
+  };
 
   if (!authChecked) {
     return (
@@ -459,14 +484,14 @@ export default function Dashboard() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 pb-20 md:pb-6"
+      className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 pb-20 md:pb-6 safe-area-inset-bottom"
     >
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg shadow-sm border-b border-gray-100 p-4">
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg shadow-sm border-b border-gray-100 p-4 safe-area-inset-top">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight truncate">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 tracking-tight truncate">
                 👋 Halo,{" "}
                 <span className="text-blue-600">
                   {user?.email?.split("@")[0]}
@@ -481,32 +506,31 @@ export default function Dashboard() {
             <div className="hidden md:flex items-center gap-2 flex-wrap justify-end">
               <button
                 onClick={() => navigate("/utang")}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-sm"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-sm text-sm"
               >
                 💸 Hutang
               </button>
               <button
                 onClick={() => setShowAccountModal(true)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors text-sm"
               >
                 💳 Akun
               </button>
               <button
                 onClick={() => setShowCategoryModal(true)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors text-sm"
               >
                 📁 Kategori
               </button>
               <button
                 onClick={() => setAddModalOpen(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow transition-colors"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow transition-colors text-sm"
               >
                 ➕ Tambah
               </button>
-              {/* 🔥 NEW: Refresh Button */}
               <button
                 onClick={refreshData}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
                 title="Refresh data"
               >
                 🔄
@@ -517,29 +541,31 @@ export default function Dashboard() {
                   toast.success("Berhasil keluar!");
                   navigate("/");
                 }}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm"
               >
                 🚪 Keluar
               </button>
             </div>
 
             {/* Mobile Affirmation - Only show in overview */}
-            <div className="w-full md:hidden bg-gradient-to-r from-green-100 to-teal-200 p-3 rounded-xl shadow-sm mt-2">
-              <AffirmationCard />
-            </div>
+            {isMobile && shouldShowSection("overview") && (
+              <div className="w-full bg-gradient-to-r from-green-100 to-teal-200 p-3 rounded-xl shadow-sm mt-2">
+                <AffirmationCard />
+              </div>
+            )}
           </div>
         </div>
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Mobile Navigation */}
-        <MobileNav />
+        {isMobile && <MobileNav />}
 
         {/* Content Sections */}
         <div className="space-y-6">
           {/* Overview Section */}
           <AnimatePresence>
-            {(activeSection === "overview" || window.innerWidth >= 768) && (
+            {shouldShowSection("overview") && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -548,10 +574,10 @@ export default function Dashboard() {
               >
                 {/* Financial Summary */}
                 <FinancialStatusCard
-                  totalIncome={totalIncome}
-                  totalExpense={totalExpense}
-                  todayIncome={todayIncome}
-                  todayExpense={todayExpense}
+                  totalIncome={financialData.totalIncome}
+                  totalExpense={financialData.totalExpense}
+                  todayIncome={financialData.todayIncome}
+                  todayExpense={financialData.todayExpense}
                   selectedAccount={selectedAccount}
                 />
 
@@ -564,7 +590,7 @@ export default function Dashboard() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setChartType("expense")}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex-1 ${
                           chartType === "expense"
                             ? "bg-blue-600 text-white shadow-sm"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -574,7 +600,7 @@ export default function Dashboard() {
                       </button>
                       <button
                         onClick={() => setChartType("income")}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex-1 ${
                           chartType === "income"
                             ? "bg-blue-600 text-white shadow-sm"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -584,7 +610,9 @@ export default function Dashboard() {
                       </button>
                     </div>
                   </div>
-                  <ReportChart data={chartData} />
+                  <div className="h-64 sm:h-80">
+                    <ReportChart data={chartData} />
+                  </div>
                 </div>
               </motion.section>
             )}
@@ -592,7 +620,7 @@ export default function Dashboard() {
 
           {/* Accounts Section */}
           <AnimatePresence>
-            {(activeSection === "accounts" || window.innerWidth >= 768) && (
+            {shouldShowSection("accounts") && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -630,7 +658,7 @@ export default function Dashboard() {
                     return (
                       <motion.div
                         key={acc.id}
-                        whileHover={{ scale: 1.02 }}
+                        whileHover={{ scale: isMobile ? 1 : 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         transition={{ type: "spring", stiffness: 300 }}
                       >
@@ -649,7 +677,7 @@ export default function Dashboard() {
 
           {/* Transactions Section */}
           <AnimatePresence>
-            {(activeSection === "transactions" || window.innerWidth >= 768) && (
+            {shouldShowSection("transactions") && (
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -672,9 +700,9 @@ export default function Dashboard() {
                         setLimit(Number(e.target.value));
                         setPage(1);
                       }}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent w-full md:w-auto"
                     >
-                      {[10, 20, 50, 100].map((n) => (
+                      {[5, 10, 20, 50].map((n) => (
                         <option key={n} value={n}>
                           {n}
                         </option>
@@ -688,7 +716,7 @@ export default function Dashboard() {
 
                 {/* Filters */}
                 <AnimatePresence>
-                  {(showFilters || window.innerWidth >= 768) && (
+                  {(showFilters || !isMobile) && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
@@ -759,131 +787,116 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {Object.entries(
-                      transactions.reduce((acc, trx) => {
-                        const dateObj = new Date(trx.date || trx.created_at);
-                        const dateStr = dateObj.toISOString().split("T")[0];
-                        if (!acc[dateStr]) acc[dateStr] = [];
-                        acc[dateStr].push(trx);
-                        return acc;
-                      }, {})
-                    )
-                      .sort((a, b) => new Date(b[0]) - new Date(a[0]))
-                      .map(([dateStr, trxs]) => {
-                        const today = new Date();
-                        const trxDate = new Date(dateStr);
-                        const diffDays = Math.floor(
-                          (today - trxDate) / (1000 * 60 * 60 * 24)
-                        );
+                    {groupedTransactions.map(([dateStr, trxs]) => {
+                      const today = new Date();
+                      const trxDate = new Date(dateStr);
+                      const diffDays = Math.floor(
+                        (today - trxDate) / (1000 * 60 * 60 * 24)
+                      );
 
-                        let label =
-                          diffDays === 0
-                            ? "📅 Hari Ini"
-                            : diffDays === 1
-                            ? "📆 Kemarin"
-                            : trxDate.toLocaleDateString("id-ID", {
-                                weekday: "long",
+                      let label =
+                        diffDays === 0
+                          ? "📅 Hari Ini"
+                          : diffDays === 1
+                          ? "📆 Kemarin"
+                          : trxDate.toLocaleDateString("id-ID", {
+                              weekday: "long",
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            });
+
+                      return (
+                        <div key={dateStr} className="space-y-3">
+                          <h3 className="font-semibold text-gray-700 text-sm border-b border-gray-200 pb-2 sticky top-16 bg-white/80 backdrop-blur-sm py-2">
+                            {label}
+                          </h3>
+                          <div className="space-y-2">
+                            {trxs.map((trx) => {
+                              const date = new Date(trx.created_at || trx.date);
+                              const tanggal = date.toLocaleDateString("id-ID", {
                                 day: "2-digit",
                                 month: "short",
                                 year: "numeric",
                               });
+                              const waktu = date.toLocaleTimeString("id-ID", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              });
 
-                        return (
-                          <div key={dateStr} className="space-y-3">
-                            <h3 className="font-semibold text-gray-700 text-sm border-b border-gray-200 pb-2 sticky top-16 bg-white/80 backdrop-blur-sm py-2">
-                              {label}
-                            </h3>
-                            <div className="space-y-2">
-                              {trxs.map((trx) => {
-                                const date = new Date(
-                                  trx.created_at || trx.date
-                                );
-                                console.log("Transaction account data:", {
-                                  id: trx.id,
-                                  account_id: trx.account_id,
-                                  account_name: trx.accounts?.name,
-                                  full_account_data: trx.accounts,
-                                });
-                                const tanggal = date.toLocaleDateString(
-                                  "id-ID",
-                                  {
-                                    day: "2-digit",
-                                    month: "short",
-                                    year: "numeric",
-                                  }
-                                );
-                                const waktu = date.toLocaleTimeString("id-ID", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                });
-
-                                return (
-                                  <motion.div
-                                    key={trx.id}
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="flex justify-between items-start p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group"
-                                  >
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <div className="font-medium text-gray-800 truncate">
-                                          {trx.category}
-                                        </div>
-                                        <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full border">
-                                          {trx.accounts?.name || "Tanpa Akun"}
-                                        </div>
+                              return (
+                                <motion.div
+                                  key={trx.id}
+                                  initial={{ opacity: 0, scale: 0.95 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="flex justify-between items-start p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                      <div className="font-medium text-gray-800 truncate">
+                                        {trx.category}
                                       </div>
-                                      <div className="text-xs text-gray-500 truncate">
-                                        {trx.description || "-"}
-                                      </div>
-                                      <div className="text-xs text-gray-400 mt-1">
-                                        {tanggal} • {waktu}
+                                      <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full border">
+                                        {trx.accounts?.name || "Tanpa Akun"}
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-2 ml-3">
-                                      <div
-                                        className={`font-semibold text-sm whitespace-nowrap ${
-                                          trx.type === "income"
-                                            ? "text-green-600"
-                                            : "text-red-500"
-                                        }`}
+                                    <div className="text-xs text-gray-500 truncate">
+                                      {trx.description || "-"}
+                                    </div>
+                                    <div className="text-xs text-gray-400 mt-1">
+                                      {tanggal} • {waktu}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                                    <div
+                                      className={`font-semibold text-sm whitespace-nowrap ${
+                                        trx.type === "income"
+                                          ? "text-green-600"
+                                          : "text-red-500"
+                                      }`}
+                                    >
+                                      {trx.type === "income" ? "+" : "-"} Rp{" "}
+                                      {Number(trx.amount).toLocaleString(
+                                        "id-ID"
+                                      )}
+                                    </div>
+                                    <div
+                                      className={`flex gap-1 ${
+                                        isMobile
+                                          ? "opacity-100"
+                                          : "opacity-0 group-hover:opacity-100"
+                                      } transition-opacity`}
+                                    >
+                                      <button
+                                        onClick={() => openEdit(trx)}
+                                        className="p-1 bg-yellow-100 hover:bg-yellow-200 rounded transition-colors"
+                                        title="Edit"
                                       >
-                                        {trx.type === "income" ? "+" : "-"} Rp{" "}
-                                        {Number(trx.amount).toLocaleString(
-                                          "id-ID"
-                                        )}
-                                      </div>
-                                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                          onClick={() => openEdit(trx)}
-                                          className="p-1 bg-yellow-100 hover:bg-yellow-200 rounded transition-colors"
-                                          title="Edit"
-                                        >
-                                          ✏️
-                                        </button>
-                                        <button
-                                          onClick={() => handleDelete(trx.id)}
-                                          className="p-1 bg-red-100 hover:bg-red-200 rounded transition-colors"
-                                          title="Hapus"
-                                        >
-                                          🗑️
-                                        </button>
-                                      </div>
+                                        ✏️
+                                      </button>
+                                      <button
+                                        onClick={() => handleDelete(trx.id)}
+                                        className="p-1 bg-red-100 hover:bg-red-200 rounded transition-colors"
+                                        title="Hapus"
+                                      >
+                                        🗑️
+                                      </button>
                                     </div>
-                                  </motion.div>
-                                );
-                              })}
-                            </div>
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex justify-center items-center gap-3 mt-6">
+                  <div className="flex justify-center items-center gap-3 mt-6 flex-wrap">
                     <button
                       onClick={() => setPage((p) => Math.max(p - 1, 1))}
                       disabled={page === 1}
@@ -931,14 +944,14 @@ export default function Dashboard() {
       <CategoryModal
         open={showCategoryModal}
         onClose={() => setShowCategoryModal(false)}
-        onSuccess={handleCategorySuccess} // 🔥 NEW: Add success callback
+        onSuccess={handleCategorySuccess}
       />
 
       <AccountModal
         open={showAccountModal}
         onClose={() => setShowAccountModal(false)}
         user={user}
-        onSuccess={handleAccountSuccess} // 🔥 NEW: Add success callback
+        onSuccess={handleAccountSuccess}
       />
     </motion.div>
   );

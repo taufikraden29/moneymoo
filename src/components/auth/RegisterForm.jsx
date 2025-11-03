@@ -51,21 +51,25 @@ export default function RegisterForm({ onSwitchToLogin }) {
   };
 
   return (
-    <div className="max-w-md w-full mx-auto bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: "#363636",
-            color: "#fff",
-            borderRadius: "12px",
-            fontSize: "14px",
-          },
-        }}
-      />
+    <div className="max-w-md w-full mx-auto relative">
+      {/* Background Card (Double Card Effect) */}
+      <div className="absolute -inset-1 bg-gradient-to-r from-green-500 to-blue-600 rounded-2xl opacity-30"></div>
+      {/* Main Card */}
+      <div className="relative bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden z-10">
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: "#363636",
+              color: "#fff",
+              borderRadius: "12px",
+              fontSize: "14px",
+            },
+          }}
+        />
 
-      <div className="p-8">
+        <div className="p-8">
         {/* Header */}
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
@@ -208,5 +212,6 @@ export default function RegisterForm({ onSwitchToLogin }) {
         </div>
       </div>
     </div>
+  </div>
   );
 }

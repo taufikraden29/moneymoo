@@ -60,21 +60,25 @@ export default function LoginForm({ onSwitchToRegister }) {
   };
 
   return (
-    <div className="max-w-md w-full mx-auto bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: "#363636",
-            color: "#fff",
-            borderRadius: "12px",
-            fontSize: "14px",
-          },
-        }}
-      />
+    <div className="max-w-md w-full mx-auto relative">
+      {/* Background Card (Double Card Effect) */}
+      <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl opacity-30"></div>
+      {/* Main Card */}
+      <div className="relative bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden z-10">
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: "#363636",
+              color: "#fff",
+              borderRadius: "12px",
+              fontSize: "14px",
+            },
+          }}
+        />
 
-      <div className="p-8">
+        <div className="p-8">
         {!resetMode ? (
           <>
             {/* Header */}
@@ -237,5 +241,6 @@ export default function LoginForm({ onSwitchToRegister }) {
         )}
       </div>
     </div>
+  </div>
   );
 }

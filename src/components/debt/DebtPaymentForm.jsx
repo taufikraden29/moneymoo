@@ -59,9 +59,11 @@ const DebtPaymentForm = ({ debt, onClose, onPayment }) => {
 
         try {
             await onPayment(paymentData);
+            toast.success(`Pembayaran ${debt.type === 'debt' ? 'hutang' : 'piutang'} berhasil dicatat! ✅`);
             onClose();
         } catch (error) {
             console.error('Error in handleSubmit:', error);
+            toast.error('Gagal mencatat pembayaran. Silakan coba lagi.');
             // Tidak perlu menutup form jika terjadi error
             // onClose() akan dipanggil hanya jika berhasil
         }

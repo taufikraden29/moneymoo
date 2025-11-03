@@ -54,19 +54,19 @@ const DebtPage = () => {
           <div className="flex gap-3 w-full sm:w-auto">
             <button
               onClick={() => navigate("/dashboard")}
-              className="flex-1 sm:flex-none bg-gray-600 hover:bg-gray-700 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold shadow-lg transition-colors flex items-center justify-center gap-2"
+              className="flex-1 sm:flex-none bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-xl font-semibold shadow-lg transition-colors flex items-center justify-center gap-2"
             >
               🏠 Home
             </button>
             <button
               onClick={() => setShowCalculator(true)}
-              className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold shadow-lg transition-colors flex items-center justify-center gap-2"
+              className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-xl font-semibold shadow-lg transition-colors flex items-center justify-center gap-2"
             >
               🧮 Kalkulator
             </button>
             <button
               onClick={() => setShowForm(true)}
-              className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold shadow-lg transition-colors flex items-center justify-center gap-2"
+              className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl font-semibold shadow-lg transition-colors flex items-center justify-center gap-2"
             >
               ➕ Tambah
             </button>
@@ -182,7 +182,7 @@ const DebtPage = () => {
         </AnimatePresence>
 
         {/* Mobile Back Button */}
-        <div className="fixed bottom-20 right-16 md:hidden">
+        <div className="fixed bottom-24 right-16 md:hidden">
           <button
             onClick={() => navigate("/dashboard")}
             className="bg-gray-700 hover:bg-gray-800 text-white p-4 rounded-full shadow-lg transition-colors"
@@ -195,7 +195,7 @@ const DebtPage = () => {
         {/* Floating Calculator Button for Mobile */}
         <button
           onClick={() => setShowCalculator(true)}
-          className="fixed bottom-20 right-4 md:hidden bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-lg transition-colors z-40"
+          className="fixed bottom-24 right-4 md:hidden bg-indigo-600 hover:bg-indigo-700 text-white p-5 rounded-full shadow-lg transition-colors z-40 min-h-[60px] min-w-[60px] flex items-center justify-center"
           title="Kalkulator"
         >
           🧮

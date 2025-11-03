@@ -57,12 +57,12 @@ export default function MobileNav({
               <button
                 key={item.id}
                 onClick={item.action}
-                className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 mx-1 ${
+                className={`flex flex-col items-center p-3 rounded-lg transition-colors min-w-0 flex-1 mx-1 ${
                   item.primary
                     ? "bg-blue-600 text-white"
                     : activeSection === item.id
-                    ? "bg-blue-50 text-blue-600"
-                    : "text-gray-600"
+                    ? "bg-blue-100 text-blue-700 font-medium"
+                    : "text-gray-700 hover:bg-gray-50"
                 }`}
               >
                 <span className="text-lg">{item.icon}</span>
@@ -77,10 +77,10 @@ export default function MobileNav({
             <button
               key={item.id}
               onClick={() => setActiveSection(item.id)}
-              className={`flex flex-col items-center p-2 rounded-lg transition-colors min-w-0 flex-1 ${
+              className={`flex flex-col items-center p-3 rounded-lg transition-colors min-w-0 flex-1 ${
                 activeSection === item.id
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-gray-600"
+                  ? "bg-blue-100 text-blue-700 font-medium"
+                  : "text-gray-700 hover:bg-gray-50"
               }`}
             >
               <span className="text-lg">{item.icon}</span>

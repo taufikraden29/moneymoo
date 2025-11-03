@@ -408,7 +408,7 @@ export default function Dashboard() {
         {isMobile && (
           <button
             onClick={() => setShowCalculator(true)}
-            className="fixed bottom-24 right-4 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-lg z-40 transition-colors"
+            className="fixed bottom-24 right-4 bg-indigo-600 hover:bg-indigo-700 text-white p-5 rounded-full shadow-lg z-40 transition-colors min-h-[60px] min-w-[60px] flex items-center justify-center"
             title="Kalkulator"
           >
             🧮

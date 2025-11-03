@@ -44,6 +44,7 @@ const DebtForm = ({ onSubmit, onCancel, initialData }) => {
         };
 
         onSubmit(submitData);
+        toast.success(`${initialData ? 'Perbarui' : 'Tambah'} ${form.type === 'debt' ? 'hutang' : 'piutang'} berhasil! ✅`);
     };
 
     const handleAmountChange = (e) => {

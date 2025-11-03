@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 
 const Calculator = ({ onClose }) => {
   const [input, setInput] = useState('');
@@ -88,14 +89,26 @@ const Calculator = ({ onClose }) => {
     }
   };
 
-  const handleCopyResult = () => {
+  const handleCopyResult = async () => {
     if (result) {
-      navigator.clipboard.writeText(result);
+      try {
+        await navigator.clipboard.writeText(result);
+        toast.success('Hasil disalin ke clipboard! 📋');
+      } catch (err) {
+        console.error('Failed to copy: ', err);
+        toast.error('Gagal menyalin ke clipboard');
+      }
     }
   };
 
-  const handleCopyHistoryItem = (item) => {
-    navigator.clipboard.writeText(`${item.expression} = ${item.result}`);
+  const handleCopyHistoryItem = async (item) => {
+    try {
+      await navigator.clipboard.writeText(`${item.expression} = ${item.result}`);
+      toast.success('Riwayat disalin ke clipboard! 📋');
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      toast.error('Gagal menyalin ke clipboard');
+    }
   };
 
   const handleUseHistoryItem = (item) => {
@@ -116,43 +129,43 @@ const Calculator = ({ onClose }) => {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center p-2 sm:p-4 z-50"
       onClick={onClose}
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-2xl p-4 w-full max-w-sm sm:max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl p-3 sm:p-4 w-full max-w-[95vw] sm:max-w-md max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-800">🧮 Kalkulator</h2>
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-bold text-gray-800">🧮 Kalkulator</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
+            className="text-gray-500 hover:text-gray-700 text-xl"
           >
             &times;
           </button>
         </div>
 
         {/* Display */}
-        <div className="bg-gray-100 rounded-xl p-4 mb-4 text-right">
-          <div className="text-gray-500 text-sm min-h-[20px] break-all">
+        <div className="bg-gray-100 rounded-xl p-5 mb-5 text-right">
+          <div className="text-gray-500 text-sm min-h-[24px] break-all">
             {input || '0'}
           </div>
-          <div className="text-2xl font-bold text-gray-800 min-h-[30px] break-all">
+          <div className="text-3xl font-bold text-gray-900 min-h-[36px] break-all mt-1">
             {result || '0'}
           </div>
         </div>
 
         {/* Calculator Buttons */}
-        <div className="grid grid-cols-4 gap-2 mb-4">
+        <div className="grid grid-cols-4 gap-3 mb-5 sm:gap-4">
           {buttons.map((btn) => (
             <button
               key={btn}
               onClick={() => handleButtonClick(btn)}
               className={`
-                py-3 rounded-xl font-bold text-lg transition-colors
+                py-4 rounded-xl font-bold text-lg transition-colors min-h-[56px] flex items-center justify-center
                 ${btn === '=' 
                   ? 'bg-blue-600 text-white col-span-4' 
                   : ['+', '-', '*', '/', '='].includes(btn)
@@ -170,10 +183,10 @@ const Calculator = ({ onClose }) => {
 
         {/* Copy Result Button */}
         {result && (
-          <div className="mb-4">
+          <div className="mb-5">
             <button
               onClick={handleCopyResult}
-              className="w-full py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
             >
               📋 Salin Hasil: {result}
             </button>
@@ -182,11 +195,11 @@ const Calculator = ({ onClose }) => {
 
         {/* History */}
         <div>
-          <h3 className="font-semibold text-gray-700 mb-2">Riwayat</h3>
-          <div className="max-h-40 overflow-y-auto space-y-2">
+          <h3 className="font-semibold text-gray-800 mb-3 text-base">Riwayat</h3>
+          <div className="max-h-48 overflow-y-auto space-y-3 sm:space-y-4">
             <AnimatePresence>
               {history.length === 0 ? (
-                <p className="text-gray-500 text-sm italic">Belum ada riwayat perhitungan</p>
+                <p className="text-gray-500 text-sm italic py-2">Belum ada riwayat perhitungan</p>
               ) : (
                 history.map((item) => (
                   <motion.div
@@ -194,20 +207,20 @@ const Calculator = ({ onClose }) => {
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="flex justify-between items-center bg-gray-50 rounded-lg p-3 text-sm"
+                    className="flex justify-between items-center bg-white border border-gray-200 rounded-xl p-4 text-sm shadow-sm"
                   >
                     <div 
-                      className="flex-1 cursor-pointer hover:bg-gray-100 p-1 rounded"
+                      className="flex-1 cursor-pointer hover:bg-gray-50 p-2 rounded-lg"
                       onClick={() => handleUseHistoryItem(item)}
                     >
-                      <div className="font-medium">{item.expression}</div>
-                      <div className="text-gray-500 text-xs">{item.timestamp}</div>
+                      <div className="font-medium text-gray-800">{item.expression}</div>
+                      <div className="text-gray-500 text-xs mt-1">{item.timestamp}</div>
                     </div>
-                    <div className="font-bold ml-2">= {item.result}</div>
-                    <div className="flex gap-1 ml-2">
+                    <div className="font-bold ml-2 text-gray-700 text-base">= {item.result}</div>
+                    <div className="flex gap-2 ml-2">
                       <button
                         onClick={() => handleCopyHistoryItem(item)}
-                        className="text-blue-600 hover:text-blue-800 text-sm"
+                        className="text-blue-600 hover:text-blue-800 text-base"
                         title="Salin"
                       >
                         📋

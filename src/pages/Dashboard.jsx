@@ -286,6 +286,20 @@ export default function Dashboard() {
             label: "Filter",
             action: () => setShowFilters(!showFilters),
           },
+          {
+            id: "logout",
+            icon: "🚪",
+            label: "Logout",
+            action: async () => {
+              try {
+                const { logoutUser } = await import("../services/authService");
+                await logoutUser();
+                navigate("/", { replace: true });
+              } catch (error) {
+                console.error("Logout error:", error);
+              }
+            },
+          },
         ].map((item) => {
           if (item.action) {
             return (
@@ -382,10 +396,8 @@ export default function Dashboard() {
           <MobileNav
             activeSection={activeSection}
             setActiveSection={setActiveSection}
-            refreshData={refreshData}
             setAddModalOpen={setAddModalOpen}
             setShowFilters={setShowFilters}
-            navigate={navigate}
           />
         )}
 

@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { logoutUser } from "../../services/authService";
 
 export default function MobileNav({ 
   activeSection, 
@@ -30,6 +31,19 @@ export default function MobileNav({
       icon: "🔍",
       label: "Filter",
       action: () => setShowFilters(prev => !prev),
+    },
+    {
+      id: "logout",
+      icon: "🚪",
+      label: "Logout",
+      action: async () => {
+        try {
+          await logoutUser();
+          navigate("/", { replace: true });
+        } catch (error) {
+          console.error("Logout error:", error);
+        }
+      },
     },
   ];
 

@@ -121,20 +121,87 @@ export const debtService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const { data, error } = await supabase
-      .from('debt_payments')
-      .insert([{
-        ...paymentData,
-        created_at: new Date().toISOString()
-      }])
-      .select(`
-        *,
-        accounts(name, type)
-      `)
-      .single();
+    try {
+      // 1️⃣ Tambahkan pembayaran baru
+      const { data: payment, error } = await supabase
+        .from('debt_payments')
+        .insert([{
+          ...paymentData,
+          created_at: new Date().toISOString()
+        }])
+        .select(`
+          *,
+          accounts(name, type)
+        `)
+        .single();
 
-    if (error) throw error;
-    return data;
+      if (error) throw error;
+
+      // 2️⃣ Hitung total pembayaran untuk debt ini
+      const { data: payments, error: sumError } = await supabase
+        .from('debt_payments')
+        .select('amount')
+        .eq('debt_id', paymentData.debt_id);
+
+      if (sumError) throw sumError;
+
+      const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+      // 3️⃣ Ambil data hutang untuk menghitung sisa
+      const { data: debt, error: debtError } = await supabase
+        .from('debts')
+        .select('total_amount')
+        .eq('id', paymentData.debt_id)
+        .single();
+
+      if (debtError) throw debtError;
+
+      // 4️⃣ Hitung sisa hutang
+      const remaining = debt.total_amount - totalPaid;
+      const newStatus = remaining <= 0 ? 'paid' : 'active';
+
+      // 5️⃣ Update sisa hutang dan status hutang
+      const { error: debtUpdateError } = await supabase
+        .from('debts')
+        .update({
+          remaining_amount: remaining, // Menggunakan field yang benar: remaining_amount
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', paymentData.debt_id);
+
+      if (debtUpdateError) throw debtUpdateError;
+
+      // 6️⃣ Update saldo akun karena pembayaran utang mengurangi saldo
+      if (payment.account_id) {
+        const { data: accountData, error: accountError } = await supabase
+          .from('accounts')
+          .select('balance')
+          .eq('id', payment.account_id)
+          .single();
+
+        if (accountError) throw accountError;
+
+        const currentBalance = parseFloat(accountData.balance || 0);
+        const newBalance = currentBalance - payment.amount;
+
+        const { error: updateAccountError } = await supabase
+          .from('accounts')
+          .update({ 
+            balance: newBalance
+            // Menghapus updated_at karena field ini mungkin tidak ada di tabel accounts
+          })
+          .eq('id', payment.account_id);
+
+        if (updateAccountError) throw updateAccountError;
+      }
+
+      return payment;
+    } catch (error) {
+      console.error('Error in createDebtPayment:', error);
+      // Melempar error yang lebih deskriptif
+      throw new Error(`Gagal mencatat pembayaran: ${error.message}`);
+    }
   },
 
   // ==================== SUMMARY & REPORTS ====================

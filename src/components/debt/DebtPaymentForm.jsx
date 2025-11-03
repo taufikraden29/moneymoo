@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
+import toast from 'react-hot-toast';
 
 const DebtPaymentForm = ({ debt, onClose, onPayment }) => {
     const [form, setForm] = useState({
@@ -56,8 +57,14 @@ const DebtPaymentForm = ({ debt, onClose, onPayment }) => {
             description: form.description || `Pembayaran ${debt.type === 'debt' ? 'hutang' : 'piutang'}`
         };
 
-        await onPayment(paymentData);
-        onClose();
+        try {
+            await onPayment(paymentData);
+            onClose();
+        } catch (error) {
+            console.error('Error in handleSubmit:', error);
+            // Tidak perlu menutup form jika terjadi error
+            // onClose() akan dipanggil hanya jika berhasil
+        }
     };
 
     return (
@@ -100,17 +107,68 @@ const DebtPaymentForm = ({ debt, onClose, onPayment }) => {
 
                     {/* Amount */}
                     <div>
-                        <label className="block text-gray-700 mb-2 font-medium">Jumlah Bayar</label>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-gray-700 font-medium">Jumlah Bayar</label>
+                            <div className="flex gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const oneQuarter = Math.floor(debt.remaining_amount / 4);
+                                        const formatted = new Intl.NumberFormat('id-ID').format(oneQuarter);
+                                        setForm({ ...form, amount: formatted });
+                                        toast.success('1/4 nominal disalin!');
+                                    }}
+                                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-lg transition-colors"
+                                >
+                                    1/4
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const halfAmount = Math.floor(debt.remaining_amount / 2);
+                                        const formatted = new Intl.NumberFormat('id-ID').format(halfAmount);
+                                        setForm({ ...form, amount: formatted });
+                                        toast.success('1/2 nominal disalin!');
+                                    }}
+                                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded-lg transition-colors"
+                                >
+                                    1/2
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const formatted = new Intl.NumberFormat('id-ID').format(debt.remaining_amount);
+                                        setForm({ ...form, amount: formatted });
+                                        toast.success('Nominal penuh disalin!');
+                                    }}
+                                    className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded-lg transition-colors"
+                                >
+                                    Penuh
+                                </button>
+                            </div>
+                        </div>
+                        
                         <div className="relative">
                             <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500">Rp</span>
                             <input
                                 type="text"
                                 value={form.amount}
                                 onChange={handleAmountChange}
-                                className="w-full border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-right text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full border border-gray-300 rounded-xl pl-12 pr-24 py-3 text-right text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholder="0"
                                 required
                             />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const formatted = new Intl.NumberFormat('id-ID').format(debt.remaining_amount);
+                                    setForm({ ...form, amount: formatted });
+                                    toast.success('Nominal disalin!');
+                                }}
+                                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Salin
+                            </button>
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
                             Maksimal: Rp {maxAmount.toLocaleString('id-ID')}

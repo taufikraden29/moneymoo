@@ -67,13 +67,14 @@ export const useDebts = () => {
         }
     };
 
-    const addPayment = async (paymentData) => {
+    const addPayment = async (debtId, paymentData) => {
         try {
-            const newPayment = await debtService.createDebtPayment(paymentData);
-
-            // Update local state untuk remaining amount
+            // Simpan nilai sebelumnya untuk rollback jika diperlukan
+            const previousDebts = [...debts];
+            
+            // Optimistically update UI
             setDebts(prev => prev.map(debt => {
-                if (debt.id === paymentData.debt_id) {
+                if (debt.id === debtId) {
                     return {
                         ...debt,
                         remaining_amount: debt.remaining_amount - paymentData.amount
@@ -82,12 +83,22 @@ export const useDebts = () => {
                 return debt;
             }));
 
-            await loadDebts(); // Reload untuk data terbaru
+            const newPayment = await debtService.createDebtPayment({
+                ...paymentData,
+                debt_id: debtId
+            });
+
+            // Reload untuk data terbaru dari server
+            await loadDebts();
             toast.success('Pembayaran berhasil dicatat');
             return newPayment;
         } catch (error) {
             console.error('Error adding payment:', error);
-            toast.error('Gagal mencatat pembayaran');
+            toast.error(`Gagal mencatat pembayaran: ${error.message || 'Silakan coba lagi'}`);
+            
+            // Rollback perubahan optimistik
+            setDebts(previousDebts);
+            
             throw error;
         }
     };

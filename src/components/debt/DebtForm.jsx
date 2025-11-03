@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
+import toast from 'react-hot-toast';
 
 const DebtForm = ({ onSubmit, onCancel, initialData }) => {
     const [form, setForm] = useState({

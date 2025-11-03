@@ -1,33 +1,30 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
-import {
-  getTransactions,
-  updateTransaction,
-  deleteTransaction,
-  saveTransaction,
-} from "../services/TransactionService";
 import EditTransactionModal from "../components/EditTransactionModal";
 import ReportChart from "../components/ReportChart";
-import toast from "react-hot-toast";
-import FinancialStatusCard from "../components/FinancialStatusCard";
 import CategoryModal from "../components/CategoryModal";
 import AddTransactionModal from "../components/AddTransactionModal";
 import AffirmationCard from "@/components/AffirmationCard";
 import AccountModal from "../components/AccountModal";
 import StatusCardAccount from "../components/StatusCardAccount";
 import { motion, AnimatePresence } from "framer-motion";
+import FilterSection from "../components/Dashboard/FilterSection";
+import TransactionList from "../components/Dashboard/TransactionList";
+import Pagination from "../components/Dashboard/Pagination";
+import MobileNav from "../components/Dashboard/MobileNav";
+import DashboardHeader from "../components/Dashboard/DashboardHeader";
+import { useTransactions } from "../hooks/useTransactions";
+import FinancialSummarySection from "../components/Dashboard/FinancialSummarySection";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [transactions, setTransactions] = useState([]);
   const [addModalOpen, setAddModalOpen] = useState(false);
 
   const [categories, setCategories] = useState([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
 
-  const [loading, setLoading] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
   // Akun
@@ -94,6 +91,19 @@ export default function Dashboard() {
     checkUser();
   }, [navigate]);
 
+  // Tambahkan state loading lokal untuk operasi umum
+  const [loading, setLoading] = useState(false);
+
+  // Gunakan hook useTransactions
+  const {
+    transactions,
+    loadTransactions: hookLoadTransactions,
+    addTransaction,
+    updateTransactionData,
+    deleteTransactionData,
+    calculateFinancialSummary
+  } = useTransactions(user);
+
   // 🔥 OPTIMIZED: Load data dengan useCallback
   const loadCategories = useCallback(async () => {
     if (!user) return;
@@ -125,51 +135,23 @@ export default function Dashboard() {
     }
   }, [user]);
 
-  const loadTransactions = useCallback(
-    async (pageParam = 1, limitParam = 10) => {
-      if (!user) return;
+  // Load transactions with pagination and filters using the hook
+  const loadTransactionsWithFilters = useCallback(async () => {
+    if (!user) return;
 
-      setLoading(true);
-
-      let query = supabase
-        .from("transactions")
-        .select(
-          `
-      *,
-      accounts:account_id (
-        id,
-        name,
-        type
-      )
-    `,
-          { count: "exact" }
-        )
-        .eq("user_id", user.id)
-        .order("date", { ascending: false });
-
-      // Apply filters
-      if (from) query = query.gte("date", from);
-      if (to) query = query.lte("date", to);
-      if (filterType) query = query.eq("type", filterType);
-      if (filterCategory) query = query.eq("category", filterCategory);
-      if (q) query = query.ilike("description", `%${q}%`);
-
-      const start = (pageParam - 1) * limitParam;
-      const end = start + limitParam - 1;
-
-      const { data, count, error } = await query.range(start, end);
-
-      if (error) {
-        console.error("Error loading transactions:", error);
-        toast.error("Gagal memuat transaksi");
-      } else {
-        setTransactions(data || []);
-        setTotalPages(Math.ceil(count / limitParam) || 1);
-      }
-      setLoading(false);
-    },
-    [user, from, to, filterType, filterCategory, q]
-  );
+    // Gunakan fungsi dari hook useTransactions dengan filter
+    const filters = {
+      from,
+      to,
+      type: filterType,
+      category: filterCategory,
+      q,
+      limit,
+      offset: (page - 1) * limit
+    };
+    
+    await hookLoadTransactions(filters);
+  }, [user, from, to, filterType, filterCategory, q, page, limit, hookLoadTransactions]);
 
   // 🔥 OPTIMIZED: Load all data when user changes
   useEffect(() => {
@@ -177,16 +159,14 @@ export default function Dashboard() {
       Promise.all([
         loadCategories(),
         loadAccounts(),
-        loadTransactions(page, limit),
+        loadTransactionsWithFilters(),
       ]);
     }
   }, [
     user,
     loadCategories,
     loadAccounts,
-    loadTransactions,
-    page,
-    limit,
+    loadTransactionsWithFilters,
     refreshKey,
   ]);
 
@@ -212,108 +192,29 @@ export default function Dashboard() {
   }, [memoizedChartData]);
 
   // 🔥 NEW: Refresh function untuk manual update
-  const refreshData = useCallback(() => {
+  const refreshData = useCallback(async () => {
     console.log("🔄 Manual refresh triggered");
-    setRefreshKey((prev) => prev + 1);
-  }, []);
+    await Promise.all([
+      loadCategories(),
+      loadAccounts(),
+      loadTransactionsWithFilters(),
+    ]);
+  }, [loadCategories, loadAccounts, loadTransactionsWithFilters]);
 
+  // Gunakan fungsi dari hook
   const handleAddTransaction = async (transactionData) => {
-    try {
-      if (loading) {
-        console.log("⚠️ Transaction submission blocked: already loading");
-        return;
-      }
-
-      setLoading(true);
-
-      // 🔥 FIX: Check for duplicate transaction before inserting
-      const { data: existingTransaction } = await supabase
-        .from("transactions")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("amount", transactionData.amount)
-        .eq("description", transactionData.description)
-        .eq("category", transactionData.category)
-        .eq("date", transactionData.date)
-        .single();
-
-      if (existingTransaction) {
-        toast.error("❌ Transaksi dengan detail yang sama sudah ada!");
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("transactions")
-        .insert([
-          {
-            user_id: user.id,
-            ...transactionData,
-            created_at: new Date().toISOString(),
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      toast.success("✅ Transaksi berhasil ditambahkan!");
+    const result = await addTransaction(transactionData);
+    if (result) {
       setAddModalOpen(false);
-
-      // 🔥 FIX: Refresh semua data setelah transaksi berhasil
-      await Promise.all([loadTransactions(), loadAccounts()]);
-    } catch (error) {
-      console.error("❌ Error in handleAddTransaction:", error);
-      toast.error(`❌ Gagal menambahkan transaksi: ${error.message}`);
-    } finally {
-      setLoading(false);
+      await refreshData(); // Refresh data setelah penambahan berhasil
     }
   };
 
   const handleDelete = async (id) => {
-    toast(
-      (t) => (
-        <div className="flex flex-col items-start gap-3 p-2">
-          <span className="text-gray-800 font-medium">
-            Yakin ingin menghapus transaksi ini?
-          </span>
-          <div className="flex gap-2 w-full">
-            <button
-              onClick={async () => {
-                toast.dismiss(t.id);
-                try {
-                  await toast.promise(
-                    deleteTransaction(id),
-                    {
-                      loading: "Menghapus transaksi...",
-                      success: "Transaksi berhasil dihapus!",
-                      error: "Gagal menghapus transaksi!",
-                    },
-                    { position: "top-center" }
-                  );
-                  await loadTransactions();
-                } catch (err) {
-                  console.error("Error saat hapus:", err);
-                }
-              }}
-              className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors"
-            >
-              Ya, Hapus
-            </button>
-            <button
-              onClick={() => toast.dismiss(t.id)}
-              className="flex-1 bg-gray-300 text-gray-800 px-4 py-2 rounded-lg text-sm hover:bg-gray-400 transition-colors"
-            >
-              Batal
-            </button>
-          </div>
-        </div>
-      ),
-      {
-        position: "top-center",
-        duration: 5000,
-      }
-    );
+    const success = await deleteTransactionData(id);
+    if (success) {
+      await refreshData(); // Refresh data setelah penghapusan berhasil
+    }
   };
 
   const openEdit = (trx) => {
@@ -322,18 +223,11 @@ export default function Dashboard() {
   };
 
   const handleSaveEdit = async (updatedPayload) => {
-    const promise = updateTransaction(editing.id, updatedPayload);
-    toast.promise(
-      promise,
-      {
-        loading: "Menyimpan perubahan...",
-        success: "Transaksi berhasil diperbarui!",
-        error: "Gagal memperbarui transaksi!",
-      },
-      { position: "top-center" }
-    );
-    await promise;
-    await loadTransactions();
+    const result = await updateTransactionData(editing.id, updatedPayload);
+    if (result) {
+      setModalOpen(false);
+      await refreshData(); // Refresh data setelah update berhasil
+    }
   };
 
   // 🔥 NEW: Handler untuk success dari modal
@@ -347,33 +241,10 @@ export default function Dashboard() {
     refreshData();
   }, [refreshData]);
 
-  // 🔥 OPTIMIZED: Financial calculations with useMemo
+  // Gunakan fungsi dari hook untuk menghitung ringkasan keuangan
   const financialData = useMemo(() => {
-    const totalIncome = transactions
-      .filter((t) => t.type === "income")
-      .reduce((acc, t) => acc + Number(t.amount), 0);
-    const totalExpense = transactions
-      .filter((t) => t.type === "expense")
-      .reduce((acc, t) => acc + Number(t.amount), 0);
-    const balance = totalIncome - totalExpense;
-
-    const today = new Date().toISOString().split("T")[0];
-    const todayTransactions = transactions.filter((t) => t.date === today);
-    const todayIncome = todayTransactions
-      .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + t.amount, 0);
-    const todayExpense = todayTransactions
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    return {
-      totalIncome,
-      totalExpense,
-      balance,
-      todayIncome,
-      todayExpense,
-    };
-  }, [transactions]);
+    return calculateFinancialSummary();
+  }, [calculateFinancialSummary]);
 
   // 🔥 NEW: Grouped transactions by date with useMemo
   const groupedTransactions = useMemo(() => {
@@ -487,79 +358,36 @@ export default function Dashboard() {
       className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 pb-20 md:pb-6 safe-area-inset-bottom"
     >
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg shadow-sm border-b border-gray-100 p-4 safe-area-inset-top">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 tracking-tight truncate">
-                👋 Halo,{" "}
-                <span className="text-blue-600">
-                  {user?.email?.split("@")[0]}
-                </span>
-              </h1>
-              <p className="text-gray-500 text-sm sm:text-base">
-                Selamat datang di dashboard keuanganmu
-              </p>
-            </div>
-
-            {/* Desktop Actions */}
-            <div className="hidden md:flex items-center gap-2 flex-wrap justify-end">
-              <button
-                onClick={() => navigate("/utang")}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-sm text-sm"
-              >
-                💸 Hutang
-              </button>
-              <button
-                onClick={() => setShowAccountModal(true)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors text-sm"
-              >
-                💳 Akun
-              </button>
-              <button
-                onClick={() => setShowCategoryModal(true)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors text-sm"
-              >
-                📁 Kategori
-              </button>
-              <button
-                onClick={() => setAddModalOpen(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow transition-colors text-sm"
-              >
-                ➕ Tambah
-              </button>
-              <button
-                onClick={refreshData}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
-                title="Refresh data"
-              >
-                🔄
-              </button>
-              <button
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  toast.success("Berhasil keluar!");
-                  navigate("/");
-                }}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm"
-              >
-                🚪 Keluar
-              </button>
-            </div>
-
-            {/* Mobile Affirmation - Only show in overview */}
-            {isMobile && shouldShowSection("overview") && (
-              <div className="w-full bg-gradient-to-r from-green-100 to-teal-200 p-3 rounded-xl shadow-sm mt-2">
-                <AffirmationCard />
-              </div>
-            )}
+      <DashboardHeader
+        user={user}
+        navigate={navigate}
+        refreshData={refreshData}
+        setShowAccountModal={setShowAccountModal}
+        setShowCategoryModal={setShowCategoryModal}
+        setAddModalOpen={setAddModalOpen}
+      />
+      
+      {/* Mobile Affirmation - Only show in overview */}
+      {isMobile && shouldShowSection("overview") && (
+        <div className="max-w-7xl mx-auto px-4 mt-2">
+          <div className="w-full bg-gradient-to-r from-green-100 to-teal-200 p-3 rounded-xl shadow-sm">
+            <AffirmationCard />
           </div>
         </div>
-      </header>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Mobile Navigation */}
-        {isMobile && <MobileNav />}
+        {isMobile && (
+          <MobileNav
+            activeSection={activeSection}
+            setActiveSection={setActiveSection}
+            refreshData={refreshData}
+            setAddModalOpen={setAddModalOpen}
+            setShowFilters={setShowFilters}
+            navigate={navigate}
+          />
+        )}
 
         {/* Content Sections */}
         <div className="space-y-6">
@@ -573,12 +401,10 @@ export default function Dashboard() {
                 className="space-y-6"
               >
                 {/* Financial Summary */}
-                <FinancialStatusCard
-                  totalIncome={financialData.totalIncome}
-                  totalExpense={financialData.totalExpense}
-                  todayIncome={financialData.todayIncome}
-                  todayExpense={financialData.todayExpense}
+                <FinancialSummarySection
+                  user={user}
                   selectedAccount={selectedAccount}
+                  transactions={transactions}
                 />
 
                 {/* Chart */}
@@ -715,209 +541,38 @@ export default function Dashboard() {
                 </div>
 
                 {/* Filters */}
-                <AnimatePresence>
-                  {(showFilters || !isMobile) && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mb-6 overflow-hidden"
-                    >
-                      <input
-                        type="date"
-                        value={from}
-                        onChange={(e) => setFrom(e.target.value)}
-                        className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-                        placeholder="Dari tanggal"
-                      />
-                      <input
-                        type="date"
-                        value={to}
-                        onChange={(e) => setTo(e.target.value)}
-                        className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-                        placeholder="Sampai tanggal"
-                      />
-                      <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                        className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-                      >
-                        <option value="">Semua Tipe</option>
-                        <option value="income">Pemasukan</option>
-                        <option value="expense">Pengeluaran</option>
-                      </select>
-                      <select
-                        value={filterCategory}
-                        onChange={(e) => setFilterCategory(e.target.value)}
-                        className="border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-                      >
-                        <option value="">Semua Kategori</option>
-                        {categories.map((c) => (
-                          <option key={c.id} value={c.name}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="Cari deskripsi..."
-                        value={q}
-                        onChange={(e) => setQ(e.target.value)}
-                        className="border border-gray-300 px-3 py-2 rounded-lg text-sm col-span-2 focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <FilterSection
+                  showFilters={showFilters}
+                  isMobile={isMobile}
+                  from={from}
+                  to={to}
+                  filterType={filterType}
+                  filterCategory={filterCategory}
+                  q={q}
+                  categories={categories}
+                  setFrom={setFrom}
+                  setTo={setTo}
+                  setFilterType={setFilterType}
+                  setFilterCategory={setFilterCategory}
+                  setQ={setQ}
+                />
 
                 {/* Transactions List */}
-                {loading ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : transactions.length === 0 ? (
-                  <div className="text-center py-8">
-                    <div className="text-gray-400 text-6xl mb-4">📝</div>
-                    <p className="text-gray-500 text-sm">Belum ada transaksi</p>
-                    <button
-                      onClick={() => setAddModalOpen(true)}
-                      className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                    >
-                      Tambah Transaksi Pertama
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {groupedTransactions.map(([dateStr, trxs]) => {
-                      const today = new Date();
-                      const trxDate = new Date(dateStr);
-                      const diffDays = Math.floor(
-                        (today - trxDate) / (1000 * 60 * 60 * 24)
-                      );
-
-                      let label =
-                        diffDays === 0
-                          ? "📅 Hari Ini"
-                          : diffDays === 1
-                          ? "📆 Kemarin"
-                          : trxDate.toLocaleDateString("id-ID", {
-                              weekday: "long",
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            });
-
-                      return (
-                        <div key={dateStr} className="space-y-3">
-                          <h3 className="font-semibold text-gray-700 text-sm border-b border-gray-200 pb-2 sticky top-16 bg-white/80 backdrop-blur-sm py-2">
-                            {label}
-                          </h3>
-                          <div className="space-y-2">
-                            {trxs.map((trx) => {
-                              const date = new Date(trx.created_at || trx.date);
-                              const tanggal = date.toLocaleDateString("id-ID", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              });
-                              const waktu = date.toLocaleTimeString("id-ID", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              });
-
-                              return (
-                                <motion.div
-                                  key={trx.id}
-                                  initial={{ opacity: 0, scale: 0.95 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  transition={{ duration: 0.2 }}
-                                  className="flex justify-between items-start p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group"
-                                >
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                      <div className="font-medium text-gray-800 truncate">
-                                        {trx.category}
-                                      </div>
-                                      <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full border">
-                                        {trx.accounts?.name || "Tanpa Akun"}
-                                      </div>
-                                    </div>
-                                    <div className="text-xs text-gray-500 truncate">
-                                      {trx.description || "-"}
-                                    </div>
-                                    <div className="text-xs text-gray-400 mt-1">
-                                      {tanggal} • {waktu}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                                    <div
-                                      className={`font-semibold text-sm whitespace-nowrap ${
-                                        trx.type === "income"
-                                          ? "text-green-600"
-                                          : "text-red-500"
-                                      }`}
-                                    >
-                                      {trx.type === "income" ? "+" : "-"} Rp{" "}
-                                      {Number(trx.amount).toLocaleString(
-                                        "id-ID"
-                                      )}
-                                    </div>
-                                    <div
-                                      className={`flex gap-1 ${
-                                        isMobile
-                                          ? "opacity-100"
-                                          : "opacity-0 group-hover:opacity-100"
-                                      } transition-opacity`}
-                                    >
-                                      <button
-                                        onClick={() => openEdit(trx)}
-                                        className="p-1 bg-yellow-100 hover:bg-yellow-200 rounded transition-colors"
-                                        title="Edit"
-                                      >
-                                        ✏️
-                                      </button>
-                                      <button
-                                        onClick={() => handleDelete(trx.id)}
-                                        className="p-1 bg-red-100 hover:bg-red-200 rounded transition-colors"
-                                        title="Hapus"
-                                      >
-                                        🗑️
-                                      </button>
-                                    </div>
-                                  </div>
-                                </motion.div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                <TransactionList
+                  transactions={transactions}
+                  groupedTransactions={groupedTransactions}
+                  loading={loading}
+                  openEdit={openEdit}
+                  handleDelete={handleDelete}
+                  isMobile={isMobile}
+                />
 
                 {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex justify-center items-center gap-3 mt-6 flex-wrap">
-                    <button
-                      onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                      disabled={page === 1}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      ⬅️ Prev
-                    </button>
-                    <span className="text-sm text-gray-700 px-3 py-2 bg-gray-50 rounded-lg">
-                      Halaman {page} dari {totalPages}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setPage((p) => Math.min(p + 1, totalPages))
-                      }
-                      disabled={page === totalPages}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Next ➡️
-                    </button>
-                  </div>
-                )}
+                <Pagination
+                  page={page}
+                  totalPages={totalPages}
+                  setPage={setPage}
+                />
               </motion.section>
             )}
           </AnimatePresence>

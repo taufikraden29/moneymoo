@@ -7,7 +7,8 @@ export default function DashboardHeader({
   refreshData,
   setShowAccountModal,
   setShowCategoryModal,
-  setAddModalOpen
+  setAddModalOpen,
+  setShowCalculator
 }) {
   return (
     <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg shadow-sm border-b border-gray-100 p-4 safe-area-inset-top">
@@ -58,18 +59,22 @@ export default function DashboardHeader({
             >
               🔄
             </button>
+          </div>
+
+          {/* Mobile Actions - Only logout button, calculator is floating */}
+          <div className="flex flex-wrap gap-2 mt-2 md:hidden">
             <button
               onClick={async () => {
                 await supabase.auth.signOut();
                 toast.success("Berhasil keluar!");
                 navigate("/");
               }}
-              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm"
+              className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors text-sm"
             >
               🚪 Keluar
             </button>
           </div>
-
+          
           {/* Mobile Affirmation - Only show in overview */}
           <div className="w-full bg-gradient-to-r from-green-100 to-teal-200 p-3 rounded-xl shadow-sm mt-2 md:hidden">
             <div className="text-center">

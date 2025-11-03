@@ -5,7 +5,8 @@ export default function MobileNav({
   activeSection, 
   setActiveSection, 
   setAddModalOpen,
-  setShowFilters
+  setShowFilters,
+  setShowCalculator
 }) {
   const navigate = useNavigate();
   

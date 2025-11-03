@@ -8,6 +8,7 @@ import AddTransactionModal from "../components/AddTransactionModal";
 import AffirmationCard from "@/components/AffirmationCard";
 import AccountModal from "../components/AccountModal";
 import StatusCardAccount from "../components/StatusCardAccount";
+import Calculator from "../components/Calculator";
 import { motion, AnimatePresence } from "framer-motion";
 import FilterSection from "../components/Dashboard/FilterSection";
 import TransactionList from "../components/Dashboard/TransactionList";
@@ -61,6 +62,7 @@ export default function Dashboard() {
 
   // 🔥 NEW: Refresh state untuk force update
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showCalculator, setShowCalculator] = useState(false);
 
   // 🔥 NEW: Handle window resize
   useEffect(() => {
@@ -379,6 +381,7 @@ export default function Dashboard() {
         setShowAccountModal={setShowAccountModal}
         setShowCategoryModal={setShowCategoryModal}
         setAddModalOpen={setAddModalOpen}
+        setShowCalculator={() => setShowCalculator(true)}
       />
       
       {/* Mobile Affirmation - Only show in overview */}
@@ -399,6 +402,17 @@ export default function Dashboard() {
             setAddModalOpen={setAddModalOpen}
             setShowFilters={setShowFilters}
           />
+        )}
+        
+        {/* Floating Calculator Button for Mobile */}
+        {isMobile && (
+          <button
+            onClick={() => setShowCalculator(true)}
+            className="fixed bottom-24 right-4 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-lg z-40 transition-colors"
+            title="Kalkulator"
+          >
+            🧮
+          </button>
         )}
 
         {/* Content Sections */}
@@ -620,6 +634,11 @@ export default function Dashboard() {
         user={user}
         onSuccess={handleAccountSuccess}
       />
+
+      {/* Calculator Modal */}
+      {showCalculator && (
+        <Calculator onClose={() => setShowCalculator(false)} />
+      )}
     </motion.div>
   );
 }

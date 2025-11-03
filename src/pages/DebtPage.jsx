@@ -4,6 +4,7 @@ import { useDebts } from "../hooks/useDebts";
 import DebtSummary from "../components/debt/DebtSummary";
 import DebtCard from "../components/debt/DebtCard";
 import DebtForm from "../components/debt/DebtForm";
+import Calculator from "../components/Calculator";
 import { useNavigate } from "react-router-dom";
 
 const DebtPage = () => {
@@ -11,6 +12,7 @@ const DebtPage = () => {
   const { debts, stats, loading, addDebt, deleteDebt, addPayment } = useDebts();
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState("all"); // all, debt, receivable
+  const [showCalculator, setShowCalculator] = useState(false);
 
   const filteredDebts = debts.filter((debt) => {
     if (filter === "all") return true;
@@ -55,6 +57,12 @@ const DebtPage = () => {
               className="flex-1 sm:flex-none bg-gray-600 hover:bg-gray-700 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold shadow-lg transition-colors flex items-center justify-center gap-2"
             >
               🏠 Home
+            </button>
+            <button
+              onClick={() => setShowCalculator(true)}
+              className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold shadow-lg transition-colors flex items-center justify-center gap-2"
+            >
+              🧮 Kalkulator
             </button>
             <button
               onClick={() => setShowForm(true)}
@@ -156,7 +164,7 @@ const DebtPage = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+              className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center p-4 z-50"
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
@@ -174,7 +182,7 @@ const DebtPage = () => {
         </AnimatePresence>
 
         {/* Mobile Back Button */}
-        <div className="fixed bottom-20 right-4 md:hidden">
+        <div className="fixed bottom-20 right-16 md:hidden">
           <button
             onClick={() => navigate("/dashboard")}
             className="bg-gray-700 hover:bg-gray-800 text-white p-4 rounded-full shadow-lg transition-colors"
@@ -183,6 +191,20 @@ const DebtPage = () => {
             🏠
           </button>
         </div>
+        
+        {/* Floating Calculator Button for Mobile */}
+        <button
+          onClick={() => setShowCalculator(true)}
+          className="fixed bottom-20 right-4 md:hidden bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-lg transition-colors z-40"
+          title="Kalkulator"
+        >
+          🧮
+        </button>
+        
+        {/* Calculator Modal */}
+        {showCalculator && (
+          <Calculator onClose={() => setShowCalculator(false)} />
+        )}
       </div>
     </div>
   );

@@ -71,22 +71,22 @@ const DebtPaymentForm = ({ debt, onClose, onPayment }) => {
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center p-2 sm:p-4 z-50"
             onClick={onClose}
         >
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="bg-white rounded-2xl p-6 w-full max-w-md"
+                className="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-sm sm:max-w-md max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
             >
-                <h2 className="text-xl font-bold text-gray-800 mb-4">
+                <h2 className="text-xl font-bold text-gray-800 mb-4 text-center sm:text-left">
                     💳 Bayar {debt.type === 'debt' ? 'Hutang' : 'Piutang'}
                 </h2>
 
                 <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                    <p className="text-sm text-gray-600">Kepada: {debt.contact_name}</p>
-                    <p className="text-lg font-bold text-gray-800">
+                    <p className="text-sm text-gray-600 break-words">Kepada: {debt.contact_name}</p>
+                    <p className="text-lg font-bold text-gray-800 mt-1 break-words">
                         Sisa: Rp {debt.remaining_amount.toLocaleString('id-ID')}
                     </p>
                 </div>
@@ -94,22 +94,22 @@ const DebtPaymentForm = ({ debt, onClose, onPayment }) => {
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Payment Date */}
                     <div>
-                        <label className="block text-gray-700 mb-2 font-medium">Tanggal Bayar</label>
+                        <label className="block text-gray-700 mb-2 font-medium text-sm">Tanggal Bayar</label>
                         <input
                             type="date"
                             value={form.payment_date}
                             onChange={(e) => setForm({ ...form, payment_date: e.target.value })}
                             max={new Date().toISOString().split('T')[0]}
-                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                             required
                         />
                     </div>
 
                     {/* Amount */}
                     <div>
-                        <div className="flex justify-between items-center mb-2">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-2">
                             <label className="block text-gray-700 font-medium">Jumlah Bayar</label>
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 justify-end">
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -149,12 +149,12 @@ const DebtPaymentForm = ({ debt, onClose, onPayment }) => {
                         </div>
                         
                         <div className="relative">
-                            <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500">Rp</span>
+                            <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">Rp</span>
                             <input
                                 type="text"
                                 value={form.amount}
                                 onChange={handleAmountChange}
-                                className="w-full border border-gray-300 rounded-xl pl-12 pr-24 py-3 text-right text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full border border-gray-300 rounded-xl pl-10 pr-24 py-3 text-right text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholder="0"
                                 required
                             />
@@ -177,11 +177,11 @@ const DebtPaymentForm = ({ debt, onClose, onPayment }) => {
 
                     {/* Account */}
                     <div>
-                        <label className="block text-gray-700 mb-2 font-medium">Akun Pembayaran</label>
+                        <label className="block text-gray-700 mb-2 font-medium text-sm">Akun Pembayaran</label>
                         <select
                             value={form.account_id}
                             onChange={(e) => setForm({ ...form, account_id: e.target.value })}
-                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                             required
                         >
                             <option value="">Pilih akun...</option>
@@ -195,11 +195,11 @@ const DebtPaymentForm = ({ debt, onClose, onPayment }) => {
 
                     {/* Payment Method */}
                     <div>
-                        <label className="block text-gray-700 mb-2 font-medium">Metode Pembayaran</label>
+                        <label className="block text-gray-700 mb-2 font-medium text-sm">Metode Pembayaran</label>
                         <select
                             value={form.payment_method}
                             onChange={(e) => setForm({ ...form, payment_method: e.target.value })}
-                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                         >
                             <option value="cash">Tunai</option>
                             <option value="transfer">Transfer</option>
@@ -211,18 +211,18 @@ const DebtPaymentForm = ({ debt, onClose, onPayment }) => {
 
                     {/* Description */}
                     <div>
-                        <label className="block text-gray-700 mb-2 font-medium">Keterangan</label>
+                        <label className="block text-gray-700 mb-2 font-medium text-sm">Keterangan</label>
                         <input
                             type="text"
                             value={form.description}
                             onChange={(e) => setForm({ ...form, description: e.target.value })}
-                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                             placeholder="Keterangan pembayaran"
                         />
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
                         <button
                             type="button"
                             onClick={onClose}

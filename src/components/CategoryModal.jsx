@@ -136,7 +136,7 @@ export default function CategoryModal({ open, onClose }) {
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
+          <div className="fixed inset-0 backdrop-blur-sm bg-black/30" aria-hidden="true" />
         </Transition.Child>
 
         {/* Modal panel wrapper */}

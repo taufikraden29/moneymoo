@@ -1,20 +1,8 @@
 // src/services/authService.js
 import { supabase } from "../lib/supabaseClient";
-
-/**
- * Validasi email
- */
-function validateEmail(email) {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
-}
-
-/**
- * Validasi password
- */
-function validatePassword(password) {
-  return password.length >= 6;
-}
+import ErrorHandler from "../utils/errorHandler";
+import SecurityUtils from "../utils/security";
+import logger from "../utils/logger";
 
 /**
  * Register user baru dengan validasi dan metadata tambahan (displayName)
@@ -26,28 +14,72 @@ export async function registerUser(
   SECRET_KEY,
   displayName
 ) {
-  // Validasi input
-  if (!email || !password) throw new Error("Email dan password wajib diisi!");
-  if (!validateEmail(email)) throw new Error("Format email tidak valid!");
-  if (!validatePassword(password)) throw new Error("Password minimal 6 karakter!");
-  if (!secret) throw new Error("Kunci rahasia wajib diisi!");
-  if (secret !== SECRET_KEY) throw new Error("Kunci rahasia tidak valid!");
-  if (!displayName) throw new Error("Nama pengguna wajib diisi!");
-  if (displayName.trim().length < 2) throw new Error("Nama pengguna minimal 2 karakter!");
+  // Validasi input menggunakan ErrorHandler dan SecurityUtils
+  const validationErrors = ErrorHandler.validate(
+    { email, password, secret, displayName },
+    {
+      email: { 
+        required: true, 
+        type: 'email',
+        custom: (val) => !val ? null : (!SecurityUtils.isValidEmail(val) ? 'Format email tidak valid' : null)
+      },
+      password: { 
+        required: true, 
+        minLength: 8,
+        custom: (val) => {
+          if (!val) return null;
+          const passwordErrors = SecurityUtils.validatePasswordStrength(val);
+          return passwordErrors.length > 0 ? passwordErrors.join(', ') : null;
+        }
+      },
+      secret: { required: true },
+      displayName: { 
+        required: true, 
+        minLength: 2,
+        custom: (val) => !val ? null : (val.trim().length < 2 ? 'Nama pengguna minimal 2 karakter' : null)
+      }
+    }
+  );
+
+  if (validationErrors.length > 0) {
+    throw new Error(validationErrors[0]); // Return the first validation error
+  }
+
+  // Additional validation for secret key
+  if (secret !== SECRET_KEY) {
+    throw new Error("Kunci rahasia tidak valid!");
+  }
 
   try {
+    // Sanitasi input sebelum digunakan
+    const sanitizedEmail = SecurityUtils.sanitizeInput(email);
+    const sanitizedDisplayName = SecurityUtils.sanitizeInput(displayName.trim());
+    
+    // Log registration attempt for security monitoring
+    logger.audit('Registration Attempt', { 
+      email: sanitizedEmail, 
+      timestamp: new Date().toISOString() 
+    });
+
     // Mendaftarkan user ke Supabase + metadata nama
     const { error, data } = await supabase.auth.signUp({
-      email,
+      email: sanitizedEmail,
       password,
       options: {
         data: {
-          display_name: displayName.trim(), // user_metadata field
+          display_name: sanitizedDisplayName, // user_metadata field
         },
       },
     });
 
     if (error) {
+      // Log failed registration
+      logger.audit('Registration Failed', { 
+        email: sanitizedEmail, 
+        error: error.message,
+        timestamp: new Date().toISOString() 
+      });
+      
       if (error.message.includes("already registered")) {
         throw new Error("Email sudah terdaftar, silakan masuk.");
       } else if (error.message.includes("validation")) {
@@ -63,8 +95,8 @@ export async function registerUser(
         .from('profiles')
         .insert([{
           id: data.user.id,
-          email: email,
-          display_name: displayName.trim(),
+          email: sanitizedEmail,
+          display_name: sanitizedDisplayName,
           created_at: new Date().toISOString()
         }]);
 
@@ -72,11 +104,18 @@ export async function registerUser(
         console.error('Error creating profile:', profileError);
         // Jangan melempar error karena user tetap terdaftar meskipun profile gagal dibuat
       }
+      
+      // Log successful registration
+      logger.audit('Registration Success', { 
+        userId: data.user.id,
+        email: sanitizedEmail, 
+        timestamp: new Date().toISOString() 
+      });
     }
 
     return "Pendaftaran berhasil! Silakan verifikasi email Anda.";
   } catch (error) {
-    console.error('Registration error:', error);
+    ErrorHandler.handle(error, 'Auth Service - Register');
     throw error;
   }
 }
@@ -85,16 +124,45 @@ export async function registerUser(
  * Login user
  */
 export async function loginUser(email, password) {
-  if (!email || !password) throw new Error("Email dan password wajib diisi!");
-  if (!validateEmail(email)) throw new Error("Format email tidak valid!");
+  // Validasi input
+  const validationErrors = ErrorHandler.validate(
+    { email, password },
+    {
+      email: { 
+        required: true, 
+        type: 'email',
+        custom: (val) => !val ? null : (!SecurityUtils.isValidEmail(val) ? 'Format email tidak valid' : null)
+      },
+      password: { required: true }
+    }
+  );
 
+  if (validationErrors.length > 0) {
+    throw new Error(validationErrors[0]); // Return the first validation error
+  }
+
+  const sanitizedEmail = SecurityUtils.sanitizeInput(email);
+  
   try {
+    // Log login attempt for security monitoring
+    logger.audit('Login Attempt', { 
+      email: sanitizedEmail, 
+      timestamp: new Date().toISOString() 
+    });
+
     const { error, data } = await supabase.auth.signInWithPassword({
-      email,
+      email: sanitizedEmail,
       password,
     });
 
     if (error) {
+      // Log failed login attempt
+      logger.audit('Login Failed', { 
+        email: sanitizedEmail, 
+        error: error.message,
+        timestamp: new Date().toISOString() 
+      });
+      
       if (
         error.message.includes("Invalid login credentials") ||
         error.message.includes("Invalid email or password")
@@ -109,9 +177,16 @@ export async function loginUser(email, password) {
       }
     }
 
+    // Log successful login
+    logger.audit('Login Success', { 
+      userId: data.user?.id,
+      email: sanitizedEmail, 
+      timestamp: new Date().toISOString() 
+    });
+
     return "Berhasil masuk!";
   } catch (error) {
-    console.error('Login error:', error);
+    ErrorHandler.handle(error, 'Auth Service - Login');
     throw error;
   }
 }
@@ -120,18 +195,39 @@ export async function loginUser(email, password) {
  * Reset password
  */
 export async function resetPassword(email) {
-  if (!email) throw new Error("Masukkan email terlebih dahulu!");
-  if (!validateEmail(email)) throw new Error("Format email tidak valid!");
+  // Validasi input
+  const validationErrors = ErrorHandler.validate(
+    { email },
+    {
+      email: { 
+        required: true, 
+        type: 'email',
+        custom: (val) => !val ? null : (!SecurityUtils.isValidEmail(val) ? 'Format email tidak valid' : null)
+      }
+    }
+  );
 
+  if (validationErrors.length > 0) {
+    throw new Error(validationErrors[0]); // Return the first validation error
+  }
+
+  const sanitizedEmail = SecurityUtils.sanitizeInput(email);
+  
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    // Log password reset attempt
+    logger.audit('Password Reset Request', { 
+      email: sanitizedEmail, 
+      timestamp: new Date().toISOString() 
+    });
+
+    const { error } = await supabase.auth.resetPasswordForEmail(sanitizedEmail, {
       redirectTo: `${window.location.origin}/update-password`,
     });
 
     if (error) throw error;
     return "Link reset password telah dikirim ke email Anda.";
   } catch (error) {
-    console.error('Password reset error:', error);
+    ErrorHandler.handle(error, 'Auth Service - Password Reset');
     throw error;
   }
 }
@@ -140,7 +236,24 @@ export async function resetPassword(email) {
  * Update password setelah reset
  */
 export async function updatePassword(newPassword) {
-  if (!validatePassword(newPassword)) throw new Error("Password minimal 6 karakter!");
+  // Validasi password
+  const validationErrors = ErrorHandler.validate(
+    { password: newPassword },
+    {
+      password: { 
+        required: true, 
+        custom: (val) => {
+          if (!val) return null;
+          const passwordErrors = SecurityUtils.validatePasswordStrength(val);
+          return passwordErrors.length > 0 ? passwordErrors.join(', ') : null;
+        }
+      }
+    }
+  );
+
+  if (validationErrors.length > 0) {
+    throw new Error(validationErrors[0]); // Return the first validation error
+  }
   
   try {
     const { error } = await supabase.auth.updateUser({
@@ -150,7 +263,7 @@ export async function updatePassword(newPassword) {
     if (error) throw error;
     return "Password berhasil diperbarui!";
   } catch (error) {
-    console.error('Update password error:', error);
+    ErrorHandler.handle(error, 'Auth Service - Update Password');
     throw error;
   }
 }
@@ -162,9 +275,15 @@ export async function logoutUser() {
   try {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    
+    // Log logout event
+    logger.audit('User Logout', { 
+      timestamp: new Date().toISOString() 
+    });
+    
     return "Berhasil keluar.";
   } catch (error) {
-    console.error('Logout error:', error);
+    ErrorHandler.handle(error, 'Auth Service - Logout');
     throw error;
   }
 }
@@ -178,7 +297,7 @@ export async function getCurrentUser() {
     if (error) throw error;
     return data.user;
   } catch (error) {
-    console.error('Get user error:', error);
+    ErrorHandler.handle(error, 'Auth Service - Get Current User');
     throw error;
   }
 }
@@ -192,7 +311,7 @@ export async function checkSession() {
     if (error) throw error;
     return data.session;
   } catch (error) {
-    console.error('Check session error:', error);
+    ErrorHandler.handle(error, 'Auth Service - Check Session');
     throw error;
   }
 }

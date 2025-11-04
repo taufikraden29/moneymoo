@@ -29,6 +29,12 @@ export default function DashboardHeader({
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-3 flex-wrap justify-end">
             <button
+              onClick={() => navigate("/log")}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-sm text-sm"
+            >
+              📝 Log
+            </button>
+            <button
               onClick={() => navigate("/utang")}
               className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors shadow-sm text-sm font-medium"
             >

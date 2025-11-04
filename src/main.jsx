@@ -10,6 +10,7 @@ import Categories from "./pages/CategoriesPage.jsx";
 import UpdatePassword from "./pages/UpdatePassword.jsx";
 import Account from "./pages/Account.jsx";
 import DebtPage from "./pages/DebtPage";
+import LogPage from "./pages/LogPage.jsx";
 
 import ProtectedRoute from "./components/ProtectedRoute"; // sesuaikan path
 
@@ -82,6 +83,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         element={
           <ProtectedRoute>
             <DebtPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/log"
+        element={
+          <ProtectedRoute>
+            <LogPage />
           </ProtectedRoute>
         }
       />

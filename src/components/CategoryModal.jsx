@@ -8,6 +8,7 @@ import {
 } from "@/services/CategoryService";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import ErrorHandler from "../utils/errorHandler";
 
 export default function CategoryModal({ open, onClose }) {
   const [user, setUser] = useState(null);
@@ -38,16 +39,26 @@ export default function CategoryModal({ open, onClose }) {
       const data = await getCategories(uid);
       setCategories(data || []);
     } catch (error) {
-      console.error("Error loading categories:", error);
-      toast.error("Gagal memuat kategori");
+      ErrorHandler.handle(error, 'Category Modal - Load Categories');
     }
   };
 
   const handleAdd = async (e) => {
     e.preventDefault();
 
-    if (!form.name.trim()) {
-      toast.error("⚠️ Masukkan nama kategori!");
+    // Validate form input
+    const validationErrors = ErrorHandler.validate(
+      { name: form.name },
+      {
+        name: { 
+          required: true,
+          custom: (val) => !val.trim() ? 'Masukkan nama kategori!' : null
+        }
+      }
+    );
+
+    if (validationErrors.length > 0) {
+      toast.error(`⚠️ ${validationErrors[0]}`);
       return;
     }
 
@@ -60,15 +71,14 @@ export default function CategoryModal({ open, onClose }) {
     try {
       await addCategory({
         user_id: user.id,
-        name: form.name.trim(),
+        name: ErrorHandler.sanitizeInput(form.name.trim()),
         type: form.type
       });
       toast.success("✅ Kategori berhasil ditambahkan!");
       setForm({ name: "", type: form.type }); // Reset nama saja, pertahankan type
       await loadCategories(user.id);
     } catch (err) {
-      console.error("Error adding category:", err);
-      toast.error("❌ Gagal menambah kategori!");
+      ErrorHandler.handle(err, 'Category Modal - Add Category');
     } finally {
       setLoading(false);
     }
@@ -81,7 +91,7 @@ export default function CategoryModal({ open, onClose }) {
       (t) => (
         <div className="flex flex-col items-start gap-3 p-3">
           <span className="text-gray-800 font-medium">
-            Hapus kategori <strong>"{categoryName}"</strong>?
+            Hapus kategori <strong>"{ErrorHandler.sanitizeInput(categoryName)}"</strong>?
           </span>
           <p className="text-xs text-gray-600">
             Transaksi yang menggunakan kategori ini akan tetap ada, tetapi kategori akan diubah menjadi "Tanpa Kategori".
@@ -95,8 +105,7 @@ export default function CategoryModal({ open, onClose }) {
                   await loadCategories(user.id);
                   toast.success("✅ Kategori berhasil dihapus!");
                 } catch (err) {
-                  console.error("Error deleting category:", err);
-                  toast.error("❌ Gagal menghapus kategori!");
+                  ErrorHandler.handle(err, 'Category Modal - Delete Category');
                 }
               }}
               className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors"
@@ -286,7 +295,7 @@ export default function CategoryModal({ open, onClose }) {
                               </div>
                               <div>
                                 <p className="font-medium text-gray-800">
-                                  {category.name}
+                                  {ErrorHandler.sanitizeInput(category.name)}
                                 </p>
                                 <p className="text-xs text-gray-500">
                                   Dibuat: {new Date(category.created_at).toLocaleDateString('id-ID')}
@@ -294,7 +303,7 @@ export default function CategoryModal({ open, onClose }) {
                               </div>
                             </div>
                             <button
-                              onClick={() => handleDelete(category.id, category.name)}
+                              onClick={() => handleDelete(category.id, ErrorHandler.sanitizeInput(category.name))}
                               className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                               title="Hapus kategori"
                             >

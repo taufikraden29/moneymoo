@@ -60,105 +60,121 @@ export default function LoginForm({ onSwitchToRegister }) {
   };
 
   return (
-    <div className="max-w-md w-full mx-auto relative">
-      {/* Background Card (Double Card Effect) */}
-      <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl opacity-30"></div>
-      {/* Main Card */}
-      <div className="relative bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden z-10">
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: "#363636",
-              color: "#fff",
-              borderRadius: "12px",
-              fontSize: "14px",
-            },
-          }}
-        />
+    <div
+      className="w-full max-w-md mx-auto overflow-hidden bg-white border border-gray-100 shadow-lg rounded-2xl"
+      role="form"
+      aria-label="Formulir login"
+    >
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: "#363636",
+            color: "#fff",
+            borderRadius: "12px",
+            fontSize: "14px",
+          },
+        }}
+      />
 
-        <div className="p-8">
+      <div className="p-8">
         {!resetMode ? (
           <>
             {/* Header */}
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <div className="mb-8 text-center">
+              <h2 className="text-3xl font-bold text-transparent bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text">
                 Selamat Datang
               </h2>
-              <p className="text-gray-600 mt-2">Masuk ke akun Anda</p>
+              <p className="mt-2 text-gray-600">Masuk ke akun Anda</p>
             </div>
 
             {/* Form */}
             <form onSubmit={handleLogin} className="space-y-6">
               {/* Email Input */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label htmlFor="login-email" className="text-sm font-medium text-gray-700">
                   Email
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaEnvelope className="h-5 w-5 text-gray-400" />
+                  <div
+                    className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"
+                    aria-hidden="true"
+                  >
+                    <FaEnvelope className="w-5 h-5 text-gray-400" />
                   </div>
                   <input
+                    id="login-email"
                     type="email"
                     placeholder="nama@email.com"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
+                    className="w-full py-3 pl-10 pr-4 transition-all duration-200 border border-gray-300 outline-none rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    aria-describedby="email-help"
                   />
                 </div>
+                <p id="email-help" className="sr-only">Masukkan alamat email Anda</p>
               </div>
 
               {/* Password Input */}
               <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium text-gray-700">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="login-password" className="text-sm font-medium text-gray-700">
                     Password
                   </label>
                   <button
                     type="button"
                     onClick={() => setResetMode(true)}
-                    className="text-sm text-blue-600 hover:text-blue-700 transition-colors font-medium"
+                    className="text-sm font-medium text-blue-600 transition-colors hover:text-blue-700"
+                    aria-label="Lupa password? Klik untuk mereset password"
                   >
                     Lupa password?
                   </button>
                 </div>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaLock className="h-5 w-5 text-gray-400" />
+                  <div
+                    className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"
+                    aria-hidden="true"
+                  >
+                    <FaLock className="w-5 h-5 text-gray-400" />
                   </div>
                   <input
+                    id="login-password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Masukkan password"
-                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
+                    className="w-full py-3 pl-10 pr-12 transition-all duration-200 border border-gray-300 outline-none rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    aria-describedby="password-help"
                   />
                   <button
                     type="button"
                     onClick={togglePasswordVisibility}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 transition-colors rounded-md hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
                   >
+                    <span className="sr-only">{showPassword ? "Sembunyikan password" : "Tampilkan password"}</span>
                     {showPassword ? (
-                      <FaEyeSlash className="h-5 w-5" />
+                      <FaEyeSlash className="w-5 h-5" />
                     ) : (
-                      <FaEye className="h-5 w-5" />
+                      <FaEye className="w-5 h-5" />
                     )}
                   </button>
                 </div>
+                <p id="password-help" className="sr-only">Masukkan password Anda</p>
               </div>
 
               {/* Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                aria-busy={loading}
               >
                 {loading ? (
                   <div className="flex items-center justify-center">
-                    <div className="w-5 h-5 border-t-2 border-white border-solid rounded-full animate-spin mr-2"></div>
-                    Memproses...
+                    <div className="w-5 h-5 mr-2 border-t-2 border-white border-solid rounded-full animate-spin" aria-hidden="true"></div>
+                    <span>Memproses...</span>
                   </div>
                 ) : (
                   "Masuk Sekarang"
@@ -172,7 +188,8 @@ export default function LoginForm({ onSwitchToRegister }) {
                 Belum punya akun?{" "}
                 <button
                   onClick={onSwitchToRegister}
-                  className="text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+                  className="font-semibold text-blue-600 transition-colors rounded-md hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  aria-label="Daftar akun baru"
                 >
                   Daftar di sini
                 </button>
@@ -184,20 +201,21 @@ export default function LoginForm({ onSwitchToRegister }) {
             {/* Reset Password Header */}
             <button
               onClick={() => setResetMode(false)}
-              className="flex items-center text-gray-600 hover:text-gray-800 transition-colors mb-6"
+              className="flex items-center p-1 mb-6 text-gray-600 transition-colors rounded-md hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-label="Kembali ke formulir login"
             >
-              <FaArrowLeft className="h-4 w-4 mr-2" />
-              Kembali
+              <FaArrowLeft className="w-4 h-4 mr-2" />
+              <span>Kembali</span>
             </button>
 
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FaLock className="h-8 w-8 text-blue-600" />
+            <div className="mb-8 text-center">
+              <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full" aria-hidden="true">
+                <FaLock className="w-8 h-8 text-blue-600" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900">
                 Reset Password
               </h2>
-              <p className="text-gray-600 mt-2">
+              <p className="mt-2 text-gray-600">
                 Masukkan email Anda untuk menerima link reset password
               </p>
             </div>
@@ -205,32 +223,39 @@ export default function LoginForm({ onSwitchToRegister }) {
             {/* Reset Form */}
             <form onSubmit={handleResetPassword} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label htmlFor="reset-email" className="text-sm font-medium text-gray-700">
                   Email
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FaEnvelope className="h-5 w-5 text-gray-400" />
+                  <div
+                    className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"
+                    aria-hidden="true"
+                  >
+                    <FaEnvelope className="w-5 h-5 text-gray-400" />
                   </div>
                   <input
+                    id="reset-email"
                     type="email"
                     placeholder="nama@email.com"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
+                    className="w-full py-3 pl-10 pr-4 transition-all duration-200 border border-gray-300 outline-none rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    aria-describedby="reset-email-help"
                   />
                 </div>
+                <p id="reset-email-help" className="sr-only">Masukkan alamat email Anda untuk mereset password</p>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg hover:shadow-xl"
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                aria-busy={loading}
               >
                 {loading ? (
                   <div className="flex items-center justify-center">
-                    <div className="w-5 h-5 border-t-2 border-white border-solid rounded-full animate-spin mr-2"></div>
-                    Mengirim...
+                    <div className="w-5 h-5 mr-2 border-t-2 border-white border-solid rounded-full animate-spin" aria-hidden="true"></div>
+                    <span>Mengirim...</span>
                   </div>
                 ) : (
                   "Kirim Link Reset"
@@ -241,6 +266,6 @@ export default function LoginForm({ onSwitchToRegister }) {
         )}
       </div>
     </div>
-  </div>
+  </div >
   );
 }

@@ -1,13 +1,51 @@
 // src/hooks/useTransactions.js
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { getTransactions, saveTransaction, updateTransaction, deleteTransaction, updateAccountBalance } from '../services/TransactionService';
 import { showSuccessToast, showErrorToast, showConfirmationToast } from '../utils/notifications.jsx';
+import ErrorHandler from '../utils/errorHandler';
+import { memoize } from '../utils/memoize';
 
 export const useTransactions = (user) => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Memoize financial summary calculation for performance
+  const calculateFinancialSummary = useMemo(() => 
+    memoize(() => {
+      const totalIncome = transactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        
+      const totalExpense = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        
+      const balance = totalIncome - totalExpense;
+      
+      // Hitung ringkasan harian
+      const today = new Date().toISOString().split('T')[0];
+      const todayTransactions = transactions.filter(t => t.date === today);
+      
+      const todayIncome = todayTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+        
+      const todayExpense = todayTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+      return {
+        totalIncome,
+        totalExpense,
+        balance,
+        todayIncome,
+        todayExpense
+      };
+    }),
+    [transactions]
+  );
 
   // Fungsi untuk memuat transaksi
   const loadTransactions = useCallback(async (filters = {}) => {
@@ -25,9 +63,7 @@ export const useTransactions = (user) => {
       setTransactions(result.data || []);
       return result;
     } catch (err) {
-      console.error('Error loading transactions:', err);
-      setError(err.message);
-      showErrorToast(`Gagal memuat transaksi: ${err.message}`);
+      ErrorHandler.handle(err, 'Hook UseTransactions - Load Transactions');
       return { data: [], count: 0 };
     } finally {
       setLoading(false);
@@ -49,17 +85,21 @@ export const useTransactions = (user) => {
     setLoading(true);
 
     try {
-      // Validasi data transaksi
-      if (!transactionData.amount || parseFloat(transactionData.amount) <= 0) {
-        throw new Error('Jumlah transaksi harus lebih besar dari 0');
-      }
+      // Validasi data transaksi menggunakan ErrorHandler
+      const validationErrors = ErrorHandler.validate(
+        transactionData,
+        {
+          amount: { 
+            required: true,
+            custom: (val) => (!val || isNaN(val) || parseFloat(val) <= 0) ? 'Jumlah transaksi harus lebih besar dari 0' : null
+          },
+          category: { required: true },
+          date: { required: true }
+        }
+      );
 
-      if (!transactionData.category) {
-        throw new Error('Kategori harus diisi');
-      }
-
-      if (!transactionData.date) {
-        throw new Error('Tanggal harus diisi');
+      if (validationErrors.length > 0) {
+        throw new Error(validationErrors[0]);
       }
 
       // Simpan transaksi ke database
@@ -81,8 +121,7 @@ export const useTransactions = (user) => {
       showSuccessToast('Transaksi berhasil ditambahkan!');
       return savedTransaction[0];
     } catch (err) {
-      console.error('Error adding transaction:', err);
-      showErrorToast(err.message || 'Gagal menambahkan transaksi');
+      ErrorHandler.handle(err, 'Hook UseTransactions - Add Transaction');
       return null;
     } finally {
       setLoading(false);
@@ -108,6 +147,23 @@ export const useTransactions = (user) => {
 
       if (fetchError) throw fetchError;
 
+      // Validasi data transaksi menggunakan ErrorHandler
+      const validationErrors = ErrorHandler.validate(
+        updatedData,
+        {
+          amount: { 
+            required: true,
+            custom: (val) => (!val || isNaN(val) || parseFloat(val) <= 0) ? 'Jumlah transaksi harus lebih besar dari 0' : null
+          },
+          category: { required: true },
+          date: { required: true }
+        }
+      );
+
+      if (validationErrors.length > 0) {
+        throw new Error(validationErrors[0]);
+      }
+
       // Update transaksi di database
       const updatedTransaction = await updateTransaction(id, {
         ...updatedData,
@@ -127,8 +183,7 @@ export const useTransactions = (user) => {
       showSuccessToast('Transaksi berhasil diperbarui!');
       return updatedTransaction;
     } catch (err) {
-      console.error('Error updating transaction:', err);
-      showErrorToast(err.message || 'Gagal memperbarui transaksi');
+      ErrorHandler.handle(err, 'Hook UseTransactions - Update Transaction');
       return null;
     } finally {
       setLoading(false);
@@ -190,8 +245,7 @@ export const useTransactions = (user) => {
             showSuccessToast('Transaksi berhasil dihapus!');
             resolve(true);
           } catch (err) {
-            console.error('Error deleting transaction:', err);
-            showErrorToast(err.message || 'Gagal menghapus transaksi');
+            ErrorHandler.handle(err, 'Hook UseTransactions - Delete Transaction');
             resolve(false);
           } finally {
             setLoading(false);
@@ -201,39 +255,6 @@ export const useTransactions = (user) => {
       );
     });
   }, [user]);
-
-  // Fungsi untuk menghitung ringkasan keuangan
-  const calculateFinancialSummary = useCallback(() => {
-    const totalIncome = transactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-      
-    const totalExpense = transactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-      
-    const balance = totalIncome - totalExpense;
-    
-    // Hitung ringkasan harian
-    const today = new Date().toISOString().split('T')[0];
-    const todayTransactions = transactions.filter(t => t.date === today);
-    
-    const todayIncome = todayTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-      
-    const todayExpense = todayTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-
-    return {
-      totalIncome,
-      totalExpense,
-      balance,
-      todayIncome,
-      todayExpense
-    };
-  }, [transactions]);
 
   return {
     transactions,

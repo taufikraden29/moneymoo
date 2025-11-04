@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { supabase } from "../lib/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
+import ErrorHandler from "../utils/errorHandler";
 
 export default function AccountModal({ open, onClose, user, onSuccess }) {
   const [accounts, setAccounts] = useState([]);
@@ -37,17 +38,18 @@ export default function AccountModal({ open, onClose, user, onSuccess }) {
   }, [open, user]);
 
   const fetchAccounts = async () => {
-    const { data, error } = await supabase
-      .from("accounts")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("❌ Error fetching accounts:", error);
-      toast.error("Gagal memuat data akun");
-    } else {
+      if (error) throw error;
+
       setAccounts(data || []);
+    } catch (error) {
+      ErrorHandler.handle(error, 'Account Modal - Fetch Accounts');
     }
   };
 
@@ -82,14 +84,26 @@ export default function AccountModal({ open, onClose, user, onSuccess }) {
   const handleAddAccount = async (e) => {
     e.preventDefault();
 
-    // Validasi
-    if (!form.name.trim()) {
-      toast.error("⚠️ Nama akun wajib diisi!");
-      return;
-    }
+    // Validasi input menggunakan ErrorHandler
+    const validationErrors = ErrorHandler.validate(
+      { 
+        name: form.name, 
+        ...(form.type === "bank" && { accountNumber: form.accountNumber }) 
+      },
+      {
+        name: { 
+          required: true,
+          custom: (val) => !val.trim() ? 'Nama akun wajib diisi' : null
+        },
+        accountNumber: { 
+          required: form.type === "bank",
+          custom: (val) => form.type === "bank" && (!val || !val.trim()) ? 'Nomor rekening wajib diisi untuk akun bank' : null
+        }
+      }
+    );
 
-    if (form.type === "bank" && !form.accountNumber.trim()) {
-      toast.error("⚠️ Nomor rekening wajib diisi untuk akun bank!");
+    if (validationErrors.length > 0) {
+      toast.error(`⚠️ ${validationErrors[0]}`);
       return;
     }
 
@@ -99,9 +113,9 @@ export default function AccountModal({ open, onClose, user, onSuccess }) {
       // 🔥 SESUAIKAN DENGAN SCHEMA YANG ADA
       const accountData = {
         user_id: user.id,
-        name: form.name.trim(),
-        type: form.type,
-        account_number: form.type === "bank" ? form.accountNumber.trim() : null,
+        name: ErrorHandler.sanitizeInput(form.name.trim()),
+        type: ErrorHandler.sanitizeInput(form.type),
+        account_number: form.type === "bank" ? ErrorHandler.sanitizeInput(form.accountNumber.trim()) : null,
         // 🔥 HAPUS bank_name karena tidak ada di schema
         balance: Number(form.balance.replace(/\D/g, "")) || 0,
         created_at: new Date().toISOString()
@@ -115,19 +129,7 @@ export default function AccountModal({ open, onClose, user, onSuccess }) {
         .select()
         .single();
 
-      if (error) {
-        console.error("❌ Supabase error:", error);
-
-        // Handle specific error cases
-        if (error.code === '42501') {
-          toast.error("❌ Tidak memiliki izin untuk menambah akun");
-        } else if (error.code === '23505') {
-          toast.error("❌ Akun dengan nama yang sama sudah ada");
-        } else {
-          throw error;
-        }
-        return;
-      }
+      if (error) throw error;
 
       console.log("✅ Account created successfully:", data);
       toast.success("✅ Akun berhasil ditambahkan!");
@@ -142,8 +144,7 @@ export default function AccountModal({ open, onClose, user, onSuccess }) {
       }
 
     } catch (err) {
-      console.error("❌ Error adding account:", err);
-      toast.error(`❌ Gagal menambahkan akun: ${err.message}`);
+      ErrorHandler.handle(err, 'Account Modal - Add Account');
     } finally {
       setLoading(false);
     }
@@ -169,10 +170,7 @@ export default function AccountModal({ open, onClose, user, onSuccess }) {
                     .delete()
                     .eq("id", id);
 
-                  if (error) {
-                    console.error("❌ Error deleting account:", error);
-                    throw error;
-                  }
+                  if (error) throw error;
 
                   toast.success("✅ Akun berhasil dihapus!");
                   await fetchAccounts();
@@ -182,8 +180,7 @@ export default function AccountModal({ open, onClose, user, onSuccess }) {
                   }
 
                 } catch (err) {
-                  console.error("❌ Delete error:", err);
-                  toast.error("❌ Gagal menghapus akun!");
+                  ErrorHandler.handle(err, 'Account Modal - Delete Account');
                 }
               }}
               className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors"
@@ -468,7 +465,7 @@ export default function AccountModal({ open, onClose, user, onSuccess }) {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="font-semibold text-gray-800 truncate">
-                                  {account.name}
+                                  {ErrorHandler.sanitizeInput(account.name)}
                                 </p>
                                 <div className="flex items-center gap-2 text-xs text-gray-500">
                                   <span className="capitalize">{account.type}</span>
@@ -480,7 +477,7 @@ export default function AccountModal({ open, onClose, user, onSuccess }) {
                               </div>
                             </div>
                             <button
-                              onClick={() => handleDelete(account.id, account.name)}
+                              onClick={() => handleDelete(account.id, ErrorHandler.sanitizeInput(account.name))}
                               className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                               title="Hapus akun"
                             >

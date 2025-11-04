@@ -269,6 +269,12 @@ export default function Dashboard() {
           { id: "overview", icon: "📊", label: "Overview" },
           { id: "accounts", icon: "💳", label: "Akun" },
           {
+            id: "log",
+            icon: "📝",
+            label: "Log",
+            action: () => navigate("/log"),
+          },
+          {
             id: "utang",
             icon: "💸",
             label: "Hutang",
